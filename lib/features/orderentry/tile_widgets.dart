@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -113,99 +115,131 @@ class ItemTileCard extends StatelessWidget {
     );
   }
 
+  /// Faithful grid render: each element is positioned on the config's
+  /// rowCount×columnCount grid (positions are 1-indexed `row*100+col`), so the
+  /// label and value cells land exactly where the LOV tile defines them
+  /// (image block left, cost label/value columns, qty box, etc.).
   Widget _configured(BuildContext context, Color primary) {
-    // Native tile layout = image block on the left, text fields (grouped by grid
-    // row, ordered by column) in the middle, qty stepper on the right.
-    TileElement? imageEl;
-    TileElement? qtyEl;
-    final textEls = <TileElement>[];
+    final cols = config!.columnCount > 0 ? config!.columnCount : 9;
+    final rows = config!.rowCount > 0 ? config!.rowCount : 9;
+    final h = (config!.tileHeight > 0 ? config!.tileHeight : 180).toDouble();
+
+    // Normalise to the config's own origin (positions may be 1-indexed like the
+    // real LOV "11".."99", or 0-indexed like older/demo configs).
+    var minRow = 1 << 30, minCol = 1 << 30;
     for (final e in config!.elements) {
-      if (e.isImage) {
-        imageEl ??= e;
-      } else if (e.isQtyEntry) {
-        qtyEl ??= e;
-      } else {
-        textEls.add(e);
+      for (final p in [...e.namePositions, ...e.valuePositions, ...e.allPositions]) {
+        minRow = math.min(minRow, p ~/ 100);
+        minCol = math.min(minCol, p % 100);
       }
     }
-    textEls.sort((a, b) {
-      final r = a.sortRow.compareTo(b.sortRow);
-      return r != 0 ? r : a.sortCol.compareTo(b.sortCol);
-    });
-    final byRow = <int, List<TileElement>>{};
-    for (final e in textEls) {
-      (byRow[e.sortRow] ??= []).add(e);
-    }
-    final rows = byRow.keys.toList()..sort();
+    if (minRow == 1 << 30) minRow = 0;
+    if (minCol == 1 << 30) minCol = 0;
 
-    final textColumn = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final r in rows)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 2),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final e in byRow[r]!) Flexible(child: _cell(e, primary)),
-              ],
-            ),
-          ),
-      ],
-    );
+    return LayoutBuilder(
+      builder: (ctx, cns) {
+        final cellW = cns.maxWidth / cols;
+        final cellH = h / rows;
+        Rect? rectOf(List<int> pos) {
+          if (pos.isEmpty) return null;
+          final rs = pos.map((e) => e ~/ 100);
+          final cs = pos.map((e) => e % 100);
+          final r0 = rs.reduce(math.min), r1 = rs.reduce(math.max);
+          final c0 = cs.reduce(math.min), c1 = cs.reduce(math.max);
+          return Rect.fromLTWH((c0 - minCol) * cellW, (r0 - minRow) * cellH,
+              (c1 - c0 + 1) * cellW, (r1 - r0 + 1) * cellH);
+        }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (imageEl != null) ...[
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF2F2F2),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.image, size: 30, color: Colors.black26),
-          ),
-          const SizedBox(width: 8),
-        ],
-        Expanded(child: textColumn),
-        const SizedBox(width: 8),
-        _qtyStepper(primary),
-      ],
+        final children = <Widget>[];
+        for (final e in config!.elements) {
+          // Label (attributeName) at its own cells.
+          final label = e.attributeName.trim();
+          if (label.isNotEmpty) {
+            final nb = rectOf(
+                e.namePositions.isNotEmpty ? e.namePositions : e.valuePositions);
+            if (nb != null) {
+              children.add(Positioned.fromRect(
+                  rect: nb,
+                  child: _gridText(label, Color(e.nameColor), 10, false)));
+            }
+          }
+          // Value / image / qty entry.
+          final vb = rectOf(
+              e.valuePositions.isNotEmpty ? e.valuePositions : e.allPositions);
+          if (vb == null) continue;
+          Widget content;
+          if (e.isImage) {
+            content = _imageCell();
+          } else if (e.isQtyEntry) {
+            content = _qtyBox(primary);
+          } else {
+            final v = e.isCalculated
+                ? evaluateTileFormula(e.attributeMath, item, qty, resolveItemField)
+                : resolveItemField(e.attributeValue, item);
+            content = _gridText(v, Color(e.valueColor),
+                e.valueFontSize.toDouble().clamp(9.0, 15.0), e.valueBold);
+          }
+          children.add(Positioned.fromRect(rect: vb, child: content));
+        }
+
+        return SizedBox(
+            width: cns.maxWidth, height: h, child: Stack(children: children));
+      },
     );
   }
 
-  Widget _cell(TileElement e, Color primary) {
-    if (e.isQtyEntry) return _qtyStepper(primary);
-    final value = e.isCalculated
-        ? evaluateTileFormula(e.attributeMath, item, qty, resolveItemField)
-        : (e.isImage ? '' : resolveItemField(e.attributeValue, item));
-    final label = e.attributeName.trim();
-    final style = TextStyle(
-      color: Color(e.valueColor),
-      fontSize: e.valueFontSize.toDouble(),
-      fontWeight: e.valueBold ? FontWeight.bold : FontWeight.normal,
+  Widget _gridText(String text, Color color, double size, bool bold) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Text(text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: color,
+                fontSize: size,
+                height: 1.05,
+                fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+      ),
     );
-    if (e.isImage) {
-      return const Padding(
-        padding: EdgeInsets.all(2),
-        child: Icon(Icons.image, size: 28, color: Colors.black26),
+  }
+
+  Widget _imageCell() => Padding(
+        padding: const EdgeInsets.all(3),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F2F2),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          alignment: Alignment.center,
+          child: const Icon(Icons.image, size: 24, color: Colors.black26),
+        ),
       );
-    }
+
+  /// Qty box (native parity): tap = +1, long-press = −1.
+  Widget _qtyBox(Color primary) {
+    final n = int.tryParse(qty) ?? 0;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (label.isNotEmpty)
-            Text(label,
-                style: TextStyle(fontSize: 10, color: Color(e.nameColor))),
-          Text(value, style: style),
-        ],
+      padding: const EdgeInsets.all(3),
+      child: InkWell(
+        onTap: onQty == null ? null : () => onQty!('${n + 1}'),
+        onLongPress:
+            onQty == null ? null : () => onQty!('${n - 1 < 0 ? 0 : n - 1}'),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.black38),
+            borderRadius: BorderRadius.circular(2),
+          ),
+          alignment: Alignment.center,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text('$n',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+        ),
       ),
     );
   }

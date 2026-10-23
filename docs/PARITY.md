@@ -19,7 +19,8 @@ parity, **P3** = polish. Status: ☐ todo · ◐ partial · ☑ done.
 - ◐ Refresh Data screen (layout done; AD PROMO + image count show "—")
 
 ## Order entry
-- ◐ **P1** Rich item tiles from `tileConfigMap` — parser handles real format (9×9 "RC" positions, CSS, CALCULATED/IMAGE, `tileByRequestType` + `defaultTileConfig`); order-filling lines + order item search now render `ItemTileCard`. Remaining: precise 9×9 cell layout to match native, real item images (needs image service), deal highlight. Verify against real items on backend login.
+- ◐ **P1** Rich item tiles from `tileConfigMap` — parser + a true positioned 9×9 grid renderer (name/value cells, CSS, CALCULATED/IMAGE, qty box). Remaining: real item images (needs image service), deal highlight, pixel-tune vs native. Verify against real items on backend login.
+- ◐ **P1** Order-filling screen rebuild: PARTITION/QTY/CHARGE sort bar, inline "tap to key item" entry (number/UPC → fetch+add), item-not-found (2× alert + "NOT ON FILE", still orderable), bottom totals (per-type LOV), expandable 2-row toolbar (BACK/SEARCH/SEND default + LOV buttons). Remaining: QTY/CHARGE sort logic, exact tone/beep (needs ToneGenerator channel), tap→item-detail with ITEM_DETAILS_1 HTML.
 - ☑ `orderTotals` parsed as dict-by-type (totalItem/totalEst/totalCube/totalCases); per-type totals row
 - ☑ `defaultTileConfig` wired (fallback / item catalog)
 - ☐ **P1** Per-order-type behaviour & field sets:

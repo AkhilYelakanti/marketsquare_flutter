@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -32,30 +33,47 @@ class OrderFillingScreen extends ConsumerWidget {
         third: st.selectedCustomer != null ? 'Store: ${st.selectedCustomer!.storeId}' : null,
         height: 80,
       ),
-      bottomNavigationBar: _BottomControls(
-        onBack: () => context.pop(),
-        onSearch: () => context.push(Routes.orderItemSearch),
-        onSend: () => _send(context, ref),
-        extra: st.controlButtonsForCurrentType,
-        onControl: (b) => _handleControl(context, ref, b),
+      // Totals bar + action toolbar pinned to the bottom (native order).
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TotalsBar(primary: primary),
+          _BottomControls(
+            onBack: () => context.pop(),
+            onSearch: () => context.push(Routes.orderItemSearch),
+            onSend: () => _send(context, ref),
+            extra: st.controlButtonsForCurrentType,
+            onControl: (b) => _handleControl(context, ref, b),
+          ),
+        ],
       ),
       body: Column(
         children: [
-          _HeaderSummary(primary: primary),
-          _TotalsBar(primary: primary),
+          // Partition / QTY / CHARGE sort summary bar.
+          _SortBar(
+            primary: primary,
+            partition: st.selectedPartition,
+            onPartition: () => context.push(Routes.selectPartition),
+            onSearch: () => context.push(Routes.orderItemSearch),
+          ),
+          // Inline "tap to key item" entry (item number / UPC) → add.
+          _ItemEntryRow(
+            primary: primary,
+            onSubmit: (code) => _addByCode(context, ref, code),
+            onSearch: () => context.push(Routes.orderItemSearch),
+          ),
           const Divider(height: 1),
           Expanded(
             child: lines.isEmpty
                 ? const Center(
-                    child: Text('No items yet.\nUse SEARCH or SCAN to add items.',
+                    child: Text('No items yet.\nKey an item or use SEARCH / SCAN.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.grey)))
                 : ListView.separated(
                     itemCount: lines.length,
                     separatorBuilder: (_, _) =>
                         const Divider(height: 0.5, color: Color(0xFFEEEEEE)),
-                    // Rich config-driven tile (image, cost fields, qty stepper)
-                    // from the LOV tile config for this order type.
+                    // Config-driven tile (LOV tile layout for this order type).
                     itemBuilder: (_, i) => OrderItemTile(item: lines[i].item),
                   ),
           ),
@@ -78,10 +96,16 @@ class OrderFillingScreen extends ConsumerWidget {
     final matches = await repo.queryByExactCode(code);
     if (!context.mounted) return;
     if (matches.isEmpty) {
-      // Catalog miss — add a minimal line so scanned/keyed codes still work.
-      ctrl.commitItem({ItemRepository.colItem: code, ItemRepository.colDesc: 'Item $code'}, '1');
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Added $code (not in catalog)')));
+      // Not on file: alert the user (native beeps twice), but keep the keyed
+      // code in the item column with a "NOT ON FILE" description — the item can
+      // still be ordered.
+      await SystemSound.play(SystemSoundType.alert);
+      await HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 160));
+      await SystemSound.play(SystemSoundType.alert);
+      await HapticFeedback.heavyImpact();
+      ctrl.commitItem(
+          {ItemRepository.colItem: code, ItemRepository.colDesc: 'NOT ON FILE'}, '1');
     } else if (matches.length == 1) {
       ctrl.commitItem(matches.first, '1');
     } else {
@@ -131,39 +155,143 @@ class OrderFillingScreen extends ConsumerWidget {
   }
 }
 
-class _HeaderSummary extends ConsumerWidget {
+/// Partition / QTY / CHARGE summary bar + SEARCH (native filter-sort bar).
+class _SortBar extends StatelessWidget {
   final Color primary;
-  const _HeaderSummary({required this.primary});
+  final String partition;
+  final VoidCallback onPartition;
+  final VoidCallback onSearch;
+  const _SortBar({
+    required this.primary,
+    required this.partition,
+    required this.onPartition,
+    required this.onSearch,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final st = ref.watch(orderEntryControllerProvider);
+  Widget build(BuildContext context) {
+    Widget sort(String label) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('$label ',
+                style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey)),
+            const Text('—', style: TextStyle(fontSize: 12, color: Colors.black54)),
+          ],
+        );
     return Container(
-      color: const Color(0xFFF5F5F5),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: const Color(0xFFEDEDED),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('PO: ${st.poNumber}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                if (st.deliveryDate.isNotEmpty)
-                  Text('Delivery: ${st.deliveryDate}',
-                      style: const TextStyle(fontSize: 11, color: Colors.black54)),
-              ],
+            child: InkWell(
+              onTap: onPartition,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('PARTITION ',
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey)),
+                  Flexible(
+                    child: Text(partition,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold, color: primary)),
+                  ),
+                ],
+              ),
             ),
           ),
+          sort('QTY'),
+          const SizedBox(width: 12),
+          sort('CHARGE'),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 30,
+            child: ElevatedButton(
+              onPressed: onSearch,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              ),
+              child: const Text('SEARCH', style: TextStyle(fontSize: 12)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Inline "tap to key item" entry: key an item number / UPC → fetch + add.
+class _ItemEntryRow extends StatefulWidget {
+  final Color primary;
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onSearch;
+  const _ItemEntryRow(
+      {required this.primary, required this.onSubmit, required this.onSearch});
+
+  @override
+  State<_ItemEntryRow> createState() => _ItemEntryRowState();
+}
+
+class _ItemEntryRowState extends State<_ItemEntryRow> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _go() {
+    final c = _ctrl.text.trim();
+    if (c.isEmpty) return;
+    widget.onSubmit(c);
+    _ctrl.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+                color: Color(0xFF9E9E9E), shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: const Icon(Icons.apps, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _ctrl,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _go(),
+              decoration: const InputDecoration(
+                hintText: 'tap to key item',
+                isDense: true,
+                border: UnderlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           InkWell(
-            onTap: () => context.push(Routes.selectPartition),
-            child: Row(
-              children: [
-                Text(st.selectedPartition,
-                    style: TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.bold, color: primary)),
-                Icon(Icons.arrow_drop_down, color: primary),
-              ],
+            onTap: _go,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                  color: widget.primary, shape: BoxShape.circle),
+              alignment: Alignment.center,
+              child: const Icon(Icons.search, color: Colors.white, size: 22),
             ),
           ),
         ],
@@ -202,7 +330,7 @@ class _TotalsBar extends ConsumerWidget {
   }
 }
 
-class _BottomControls extends StatelessWidget {
+class _BottomControls extends StatefulWidget {
   final VoidCallback onBack;
   final VoidCallback onSearch;
   final VoidCallback onSend;
@@ -215,6 +343,9 @@ class _BottomControls extends StatelessWidget {
     required this.extra,
     required this.onControl,
   });
+
+  @override
+  State<_BottomControls> createState() => _BottomControlsState();
 
   static IconData _iconFor(OrderControlButton b) {
     final k = (b.icon.isNotEmpty ? b.icon : b.key).toLowerCase();
@@ -249,55 +380,84 @@ class _BottomControls extends StatelessWidget {
     }
   }
 
+}
+
+class _BottomControlsState extends State<_BottomControls> {
+  bool _expanded = false;
+
+  Widget _btn(IconData icon, String label, VoidCallback onTap) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(height: 2),
+              Text(label,
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    Widget btn(IconData icon, String label, VoidCallback onTap) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: InkWell(
-            onTap: onTap,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, color: Colors.white, size: 20),
-                ),
-                const SizedBox(height: 2),
-                Text(label,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-        );
-
-    // Base actions + the LOV1-driven control buttons for this order type.
-    // Dedupe config buttons that duplicate a base action.
+    // BACK / SEARCH / SEND are default; LOV control buttons fill in between.
     const baseKeys = {'BACK', 'SEARCH', 'SEND'};
     final extras =
-        extra.where((b) => !baseKeys.contains(b.key.toUpperCase())).toList();
+        widget.extra.where((b) => !baseKeys.contains(b.key.toUpperCase())).toList();
     final buttons = <Widget>[
-      btn(Icons.arrow_back, 'BACK', onBack),
-      btn(Icons.search, 'SEARCH', onSearch),
+      _btn(Icons.arrow_back, 'BACK', widget.onBack),
+      _btn(Icons.search, 'SEARCH', widget.onSearch),
       for (final b in extras)
-        btn(_iconFor(b), b.label.toUpperCase(), () => onControl(b)),
-      btn(Icons.send, 'SEND', onSend),
+        _btn(_BottomControls._iconFor(b), b.label.toUpperCase(),
+            () => widget.onControl(b)),
+      _btn(Icons.send, 'SEND', widget.onSend),
     ];
+    final hasOverflow = extras.isNotEmpty;
 
     return Container(
       color: primary,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Row(mainAxisSize: MainAxisSize.min, children: buttons),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 3-dot handle: expand to two rows / collapse to one scrollable row.
+          if (hasOverflow)
+            InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: SizedBox(
+                height: 22,
+                child: Icon(_expanded ? Icons.more_horiz : Icons.more_horiz,
+                    color: Colors.white70, size: 22),
+              ),
+            )
+          else
+            const SizedBox(height: 6),
+          _expanded
+              ? Wrap(
+                  alignment: WrapAlignment.center,
+                  runSpacing: 4,
+                  children: buttons,
+                )
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: buttons),
+                ),
+        ],
       ),
     );
   }
