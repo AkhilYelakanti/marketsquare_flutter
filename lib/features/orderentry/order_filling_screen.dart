@@ -36,9 +36,9 @@ class OrderFillingScreen extends ConsumerWidget {
       bottomNavigationBar: _BottomControls(
         onBack: () => context.pop(),
         onSearch: () => context.push(Routes.orderItemSearch),
-        onScan: () => _scanAdd(context, ref),
         onSend: () => _send(context, ref),
         extra: st.controlButtonsForCurrentType,
+        onControl: (b) => _handleControl(context, ref, b),
       ),
       body: Column(
         children: [
@@ -96,6 +96,32 @@ class OrderFillingScreen extends ConsumerWidget {
     } else {
       ctrl.setMults(code, matches);
       context.push(Routes.orderMultsReturned);
+    }
+  }
+
+  /// Routes a LOV1 control-button tap to its action (native parity for the
+  /// known buttons; unmapped ones surface a notice rather than dead-tapping).
+  void _handleControl(BuildContext context, WidgetRef ref, OrderControlButton b) {
+    switch (b.key.toUpperCase()) {
+      case 'PARTITION':
+        context.push(Routes.selectPartition);
+      case 'DEALS':
+        context.push(Routes.orderSearchDeals);
+      case 'NEW':
+        context.push(Routes.orderSearchNewItems);
+      case 'SAVED':
+        context.push(Routes.orderSavedItems);
+      case 'SEARCH':
+        context.push(Routes.orderItemSearch);
+      case 'SCAN':
+        _scanAdd(context, ref);
+      case 'SEND':
+      case 'SUBMIT':
+      case 'APPROVE':
+        _send(context, ref);
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${b.label} not wired yet')));
     }
   }
 
@@ -240,43 +266,99 @@ class _LineRow extends StatelessWidget {
 class _BottomControls extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onSearch;
-  final VoidCallback onScan;
   final VoidCallback onSend;
   final List<OrderControlButton> extra;
+  final void Function(OrderControlButton) onControl;
   const _BottomControls({
     required this.onBack,
     required this.onSearch,
-    required this.onScan,
     required this.onSend,
     required this.extra,
+    required this.onControl,
   });
+
+  static IconData _iconFor(OrderControlButton b) {
+    final k = (b.icon.isNotEmpty ? b.icon : b.key).toLowerCase();
+    switch (k) {
+      case 'tune':
+      case 'partition':
+        return Icons.tune;
+      case 'local_offer':
+      case 'deals':
+        return Icons.local_offer;
+      case 'link':
+      case 'linked':
+        return Icons.link;
+      case 'bookmark':
+      case 'saved':
+        return Icons.bookmark_border;
+      case 'scan':
+        return Icons.qr_code_scanner;
+      case 'add':
+      case 'new':
+        return Icons.add;
+      case 'send':
+      case 'submit':
+        return Icons.send;
+      case 'search':
+        return Icons.search;
+      case 'thumb_up':
+      case 'approve':
+        return Icons.thumb_up_alt_outlined;
+      default:
+        return Icons.radio_button_unchecked;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    Widget btn(IconData icon, String label, VoidCallback onTap) => InkWell(
-          onTap: onTap,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: Colors.white, size: 22),
-              Text(label,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
-            ],
+    Widget btn(IconData icon, String label, VoidCallback onTap) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: InkWell(
+            onTap: onTap,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: Colors.white, size: 20),
+                ),
+                const SizedBox(height: 2),
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+              ],
+            ),
           ),
         );
+
+    // Base actions + the LOV1-driven control buttons for this order type.
+    // Dedupe config buttons that duplicate a base action.
+    const baseKeys = {'BACK', 'SEARCH', 'SEND'};
+    final extras =
+        extra.where((b) => !baseKeys.contains(b.key.toUpperCase())).toList();
+    final buttons = <Widget>[
+      btn(Icons.arrow_back, 'BACK', onBack),
+      btn(Icons.search, 'SEARCH', onSearch),
+      for (final b in extras)
+        btn(_iconFor(b), b.label.toUpperCase(), () => onControl(b)),
+      btn(Icons.send, 'SEND', onSend),
+    ];
+
     return Container(
       color: primary,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          btn(Icons.arrow_back, 'BACK', onBack),
-          btn(Icons.search, 'SEARCH', onSearch),
-          btn(Icons.qr_code_scanner, 'SCAN', onScan),
-          btn(Icons.send, 'SEND', onSend),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Row(mainAxisSize: MainAxisSize.min, children: buttons),
       ),
     );
   }

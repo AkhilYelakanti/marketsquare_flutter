@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants.dart';
 import '../../widgets/brand_logo.dart';
 import '../../widgets/network_status_action.dart';
 
@@ -23,9 +24,9 @@ PreferredSizeWidget orderAppBar({
     title: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('MS ORDERING',
+        const Text(AppConstants.appTitle,
             style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-        Text(subtitle,
+        Text(subtitle.replaceAll('_', ' '),
             style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
         if (third != null)
           Text(third,

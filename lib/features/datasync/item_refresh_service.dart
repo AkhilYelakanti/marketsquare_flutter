@@ -55,6 +55,24 @@ class ItemRefreshService {
       }
       if (token == null || token.isEmpty) return false;
 
+      // LOV1 order/dashboard configuration (ORDER_DEPT_TYPES-LOV1). This drives
+      // the customer list, order-entry control buttons, dynamic item tiles and
+      // form fields — without it OrderConfig falls back to empty defaults.
+      // Native parity: ItemRefreshService saves the raw body via saveLov1ConfigJson.
+      final lov1Url = session.getServiceUrl('ORDER_DEPT_TYPES-LOV1');
+      if (lov1Url != null && lov1Url.isNotEmpty) {
+        onProgress('Loading order configuration...');
+        final lov1 = await repo.postText(lov1Url, token, {
+          'deviceId': dev,
+          'storeId': storeId,
+          'userName': userId,
+          'versionId': ver,
+        });
+        if (lov1.isSuccess && (lov1.value ?? '').trim().isNotEmpty) {
+          await session.saveLov1ConfigJson(lov1.value!);
+        }
+      }
+
       final itemUserName = session.isRepAccount() ? userId : storeId;
       final request = {
         'deviceId': dev,

@@ -35,7 +35,7 @@ class SelectOrderTypeScreen extends ConsumerWidget {
               children: [
                 for (final type in st.config.requestTypes)
                   _OrderTypeButton(
-                    label: type,
+                    label: type.replaceAll('_', ' '),
                     primary: primary,
                     onTap: () {
                       ctrl.selectOrderType(type);
