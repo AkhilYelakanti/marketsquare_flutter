@@ -248,7 +248,9 @@ class _FormulaParser {
     }
     if (t.kind == 1) {
       _consume();
-      if (t.s.toUpperCase() == 'QTY_ENTRY') return double.tryParse(qty) ?? 0;
+      // The entered quantity is referenced as QTY_ENTRY / QUANTITY / QTY.
+      const qtyTokens = {'QTY_ENTRY', 'QUANTITY', 'QTY'};
+      if (qtyTokens.contains(t.s.toUpperCase())) return double.tryParse(qty) ?? 0;
       return double.tryParse(resolveField(t.s, item)) ?? 0;
     }
     if (t.kind == 3) {

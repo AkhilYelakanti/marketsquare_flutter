@@ -431,7 +431,18 @@ class _BottomControlsState extends State<_BottomControls> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 3-dot handle: expand the middle buttons to two rows / collapse.
+          // When expanded the LOV buttons appear in rows ABOVE the fixed row.
+          if (hasOverflow && _expanded)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 2,
+                runSpacing: 6,
+                children: extraBtns,
+              ),
+            ),
+          // 3-dot handle toggles the expanded rows.
           if (hasOverflow)
             InkWell(
               onTap: () => setState(() => _expanded = !_expanded),
@@ -441,20 +452,15 @@ class _BottomControlsState extends State<_BottomControls> {
             )
           else
             const SizedBox(height: 6),
-          // BACK + SEARCH fixed left, SEND fixed right; middle buttons
-          // scroll (collapsed) or wrap to two rows (expanded).
+          // Fixed bottom row: BACK + SEARCH left, SEND right. Collapsed, the LOV
+          // buttons scroll in the middle; expanded, the middle is cleared.
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _btn(Icons.arrow_back, 'BACK', widget.onBack),
               _btn(Icons.search, 'SEARCH', widget.onSearch),
               Expanded(
                 child: _expanded
-                    ? Wrap(
-                        alignment: WrapAlignment.center,
-                        runSpacing: 4,
-                        children: extraBtns,
-                      )
+                    ? const SizedBox.shrink()
                     : SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(mainAxisSize: MainAxisSize.min, children: extraBtns),

@@ -54,16 +54,26 @@ class ItemTileCard extends StatelessWidget {
         child: Stack(
           children: [
             Padding(padding: const EdgeInsets.all(10), child: body),
+            // Item-status watermark: a faint, large, centred dark-red overlay
+            // across the whole tile (native WatermarkOverlay parity).
             if (watermark != null && watermark!.trim().isNotEmpty)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  color: Colors.red.withValues(alpha: 0.85),
-                  child: Text(watermark!.split('\n').first,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: Opacity(
+                      opacity: 0.22,
+                      child: Text(
+                        watermark!.split('\n').first,
+                        textAlign: TextAlign.center,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: Color(0xFFB71C1C),
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],
