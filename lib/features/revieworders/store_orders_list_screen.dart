@@ -91,8 +91,33 @@ class _State extends ConsumerState<StoreOrdersListScreen> {
     );
   }
 
+  /// Native parity: RECENT_ORDERS from/to dates are sent as MM/dd/yyyy.
+  String _fmt(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.month)}/${two(d.day)}/${d.year}';
+  }
+
+  Future<void> _pickDate(TextEditingController c) async {
+    final now = DateTime.now();
+    DateTime? initial;
+    try {
+      final p = c.text.split('/');
+      if (p.length == 3) {
+        initial = DateTime(int.parse(p[2]), int.parse(p[0]), int.parse(p[1]));
+      }
+    } catch (_) {}
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial ?? now,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+    );
+    if (picked != null) setState(() => c.text = _fmt(picked));
+  }
+
   Widget _filterBar(Color primary) {
-    Widget field(String label, TextEditingController c) => Padding(
+    Widget field(String label, TextEditingController c, {bool date = false}) =>
+        Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             children: [
@@ -104,11 +129,18 @@ class _State extends ConsumerState<StoreOrdersListScreen> {
               Expanded(
                 child: TextField(
                   controller: c,
-                  decoration: const InputDecoration(
+                  readOnly: date,
+                  onTap: date ? () => _pickDate(c) : null,
+                  keyboardType: date ? null : TextInputType.number,
+                  decoration: InputDecoration(
                     isDense: true,
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    hintText: date ? 'MM/DD/YYYY' : null,
+                    suffixIcon: date
+                        ? Icon(Icons.calendar_today, size: 18, color: primary)
+                        : null,
                     contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                   ),
                 ),
               ),
@@ -134,8 +166,8 @@ class _State extends ConsumerState<StoreOrdersListScreen> {
           Expanded(
             child: Column(
               children: [
-                field('FROM DATE', _from),
-                field('TO DATE', _to),
+                field('FROM DATE', _from, date: true),
+                field('TO DATE', _to, date: true),
                 field('CONFIRM #', _confirm),
               ],
             ),
