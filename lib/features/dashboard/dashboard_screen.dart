@@ -7,8 +7,8 @@ import '../../data/session/session_providers.dart';
 import '../../router/app_routes.dart';
 import '../../widgets/brand_logo.dart';
 import '../../widgets/network_status_action.dart';
+import '../messages/message_dialogs.dart';
 import '../messages/messages_controller.dart';
-import '../orderentry/alert_pipeline.dart';
 
 class _DashItem {
   final String title;
@@ -16,8 +16,9 @@ class _DashItem {
   final String route;
   final bool wide;
   final bool filled; // true = white glyph on a filled brand circle
+  final VoidCallback? onTap; // when set, overrides route navigation (popups)
   const _DashItem(this.title, this.icon, this.route,
-      {this.wide = false, this.filled = true});
+      {this.wide = false, this.filled = true, this.onTap});
 }
 
 /// Port of native `DashboardScreen` — 2-column grid, order-entry spanning full
@@ -42,7 +43,7 @@ class DashboardScreen extends ConsumerWidget {
     WidgetsBinding.instance.addPostFrameCallback(
         (_) => ref.read(messagesControllerProvider.notifier).checkImportant());
     ref.listen(messagesControllerProvider.select((s) => s.importantAlert), (_, cfg) {
-      if (cfg != null) _showImportant(context, ref, cfg);
+      if (cfg != null) showImportantAlertDialog(context, ref, cfg);
     });
 
     final items = <_DashItem>[
@@ -56,7 +57,8 @@ class DashboardScreen extends ConsumerWidget {
       if (isRep)
         const _DashItem('CHANGE STORE', Icons.store, Routes.chooseActiveCustomer)
       else
-        const _DashItem('MESSAGES', Icons.chat_bubble, Routes.messages),
+        _DashItem('MESSAGES', Icons.chat_bubble, Routes.messages,
+            onTap: () => showMessagesDialog(context)),
       const _DashItem('OTHER OPTIONS', Icons.settings, Routes.otherOptions),
       const _DashItem('HELP', Icons.question_mark, Routes.help),
     ];
@@ -128,35 +130,6 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _showImportant(BuildContext context, WidgetRef ref, AlertMessagesConfig cfg) {
-    final ctrl = ref.read(messagesControllerProvider.notifier);
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dctx) => AlertDialog(
-        title: Text(cfg.alertHeaderText.isEmpty ? 'IMPORTANT' : cfg.alertHeaderText),
-        content: Text(cfg.alertText),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dctx);
-              ctrl.dismissImportant();
-              context.push(Routes.messages);
-            },
-            child: Text(cfg.button1Text.isEmpty ? 'READ' : cfg.button1Text),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dctx);
-              ctrl.dismissImportant();
-            },
-            child: Text(cfg.button2Text.isEmpty ? 'OK' : cfg.button2Text),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// White glyph on a filled brand circle (native custom-icon parity); the wide
   /// Order Entry tile uses an outlined ring instead.
   Widget _tileIcon(_DashItem item, Color primary, {double size = 52}) {
@@ -180,7 +153,7 @@ class DashboardScreen extends ConsumerWidget {
       child: Card(
         color: const Color(0xFFE0E0E0),
         child: InkWell(
-          onTap: () => context.push(item.route),
+          onTap: item.onTap ?? () => context.push(item.route),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
             child: Column(
