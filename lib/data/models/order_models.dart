@@ -279,6 +279,8 @@ class RecentOrdersResponse {
 class StoreOrderHeader {
   final String confirmationId;
   final String requestType;
+  final String orderType;
+  final String buId;
   final String requestedDeliveryDate;
   final String customerStoreNumber;
   final String orderCreationDate;
@@ -286,6 +288,8 @@ class StoreOrderHeader {
   const StoreOrderHeader({
     this.confirmationId = '',
     this.requestType = '',
+    this.orderType = '',
+    this.buId = '',
     this.requestedDeliveryDate = '',
     this.customerStoreNumber = '',
     this.orderCreationDate = '',
@@ -294,11 +298,55 @@ class StoreOrderHeader {
   factory StoreOrderHeader.fromJson(Map<String, dynamic> j) => StoreOrderHeader(
         confirmationId: (j['confirmationId'] ?? '').toString(),
         requestType: (j['requestType'] ?? '').toString(),
+        orderType: (j['orderType'] ?? '').toString(),
+        buId: (j['buId'] ?? '').toString(),
         requestedDeliveryDate: (j['requestedDeliveryDate'] ?? '').toString(),
         customerStoreNumber: (j['customerStoreNumber'] ?? '').toString(),
         orderCreationDate: (j['orderCreationDate'] ?? '').toString(),
         currentStatus: (j['currentStatus'] ?? '').toString(),
       );
+}
+
+/// ORDER_RESPONSE receipt (REVIEW ORDER RECEIPT). Native `OrderDetailItem`.
+class OrderResponseReceipt {
+  final String acknowledgementId;
+  final String confirmationId;
+  final String orderDate;
+  final String status;
+  final String storeId;
+  final String requestType;
+  final String billingDate;
+  final String estimatedShipDate;
+  final String estimatedDeliveryDate;
+  const OrderResponseReceipt({
+    this.acknowledgementId = '',
+    this.confirmationId = '',
+    this.orderDate = '',
+    this.status = '',
+    this.storeId = '',
+    this.requestType = '',
+    this.billingDate = '',
+    this.estimatedShipDate = '',
+    this.estimatedDeliveryDate = '',
+  });
+  factory OrderResponseReceipt.fromJson(Map<String, dynamic> j) => OrderResponseReceipt(
+        acknowledgementId: (j['acknowledgementId'] ?? '').toString(),
+        confirmationId: (j['confirmationId'] ?? '').toString(),
+        orderDate: (j['orderDate'] ?? '').toString(),
+        status: (j['status'] ?? '').toString(),
+        storeId: (j['storeId'] ?? '').toString(),
+        requestType: (j['requestType'] ?? '').toString(),
+        billingDate: (j['billingDate'] ?? '').toString(),
+        estimatedShipDate: (j['estimatedShipDate'] ?? '').toString(),
+        estimatedDeliveryDate: (j['estimatedDeliveryDate'] ?? '').toString(),
+      );
+
+  /// ORDER_RESPONSE wraps the receipt in a `data` array; takes the first entry.
+  static OrderResponseReceipt? fromResponseJson(Map<String, dynamic> j) {
+    final data = (j['data'] as List?) ?? const [];
+    if (data.isEmpty) return null;
+    return OrderResponseReceipt.fromJson(data.first as Map<String, dynamic>);
+  }
 }
 
 class DeptOrderLine {

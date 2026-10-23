@@ -2,24 +2,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../router/app_routes.dart';
 import '../orderentry/order_widgets.dart';
 import 'store_orders_controller.dart';
 
-/// Port of native `StoreOrderDetailScreen`: header + dept-grouped line items for
-/// a previously sent store order.
+const _valueBlue = Color(0xFF1A49E0);
+
+/// Port of native `StoreOrderDetailScreen` (REVIEW ORDER DETAILS): header fields
+/// + dept-grouped line items for a previously sent store order, with a RESPONSE
+/// action that fetches the ORDER_RESPONSE receipt.
 class StoreOrderDetailScreen extends ConsumerWidget {
   const StoreOrderDetailScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final primary = Theme.of(context).colorScheme.primary;
     final st = ref.watch(storeOrdersControllerProvider);
     final detail = st.detail;
     final header = detail?.header;
+    final itemCount =
+        detail?.deptOrderDetails.fold<int>(0, (a, d) => a + d.orderDetails.length) ?? 0;
 
     return Scaffold(
-      appBar: orderAppBar(subtitle: 'ORDER DETAIL', height: 60),
-      bottomNavigationBar: OrderBottomBar(onBack: () => context.pop()),
+      appBar: orderAppBar(
+          subtitle: 'REVIEW ORDER DETAILS',
+          third: st.customer != null ? 'STORE: ${st.customer!.storeId}' : null,
+          height: 72),
+      bottomNavigationBar: OrderBottomBar(
+        onBack: () => context.pop(),
+        acceptLabel: detail != null && !st.loadingDetail ? 'RESPONSE' : null,
+        onAccept: detail != null && !st.loadingDetail
+            ? () async {
+                await ref.read(storeOrdersControllerProvider.notifier).fetchOrderResponse();
+                if (context.mounted) context.push(Routes.viewStoreOrdersResponse);
+              }
+            : null,
+      ),
       body: st.loadingDetail
           ? const Center(child: CircularProgressIndicator())
           : st.detailError.isNotEmpty
@@ -32,62 +49,90 @@ class StoreOrderDetailScreen extends ConsumerWidget {
               : detail == null
                   ? const SizedBox.shrink()
                   : ListView(
-                      padding: const EdgeInsets.all(16),
                       children: [
-                        if (header != null)
-                          Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5F5F5),
-                              border: Border.all(color: const Color(0xFFDDDDDD)),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                    header.requestType.isEmpty
-                                        ? 'ORDER'
-                                        : header.requestType,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: primary,
-                                        fontSize: 15)),
-                                if (header.confirmationId.isNotEmpty)
-                                  Text('Confirmation #: ${header.confirmationId}'),
-                                if (header.orderCreationDate.isNotEmpty)
-                                  Text('Created: ${header.orderCreationDate}'),
-                                if (header.requestedDeliveryDate.isNotEmpty)
-                                  Text('Delivery: ${header.requestedDeliveryDate}'),
-                                if (header.currentStatus.isNotEmpty)
-                                  Text('Status: ${header.currentStatus}'),
-                              ],
-                            ),
-                          ),
-                        const SizedBox(height: 12),
+                        if (header != null) ...[
+                          const SizedBox(height: 8),
+                          _kv('STORE ID', header.customerStoreNumber),
+                          _kv('BUID', header.buId),
+                          _kv('REQUEST TYPE', header.requestType),
+                          _kv('ORDER TYPE', header.orderType),
+                          _kv('ITEM COUNT', '$itemCount'),
+                          const SizedBox(height: 8),
+                        ],
                         for (final dept in detail.deptOrderDetails) ...[
                           Container(
                             width: double.infinity,
-                            color: const Color(0xFFEFEFEF),
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            color: const Color(0xFFCFCFCF),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                             child: Text(dept.department.isEmpty ? '—' : dept.department,
-                                style: const TextStyle(fontWeight: FontWeight.bold)),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 15)),
                           ),
                           for (final l in dept.orderDetails)
-                            ListTile(
-                              dense: true,
-                              title: Text(l.itemDescription.isEmpty
-                                  ? l.itemNumber
-                                  : l.itemDescription),
-                              subtitle: Text('# ${l.itemNumber}'),
-                              trailing: Text('Qty ${l.quantity}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                    bottom: BorderSide(color: Color(0xFFDDDDDD))),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${l.itemDescription.trim()} ${l.itemNumber.trim()}'
+                                          .trim(),
+                                      style: const TextStyle(
+                                          color: _valueBlue,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  RichText(
+                                    text: TextSpan(children: [
+                                      const TextSpan(
+                                          text: 'QTY',
+                                          style: TextStyle(
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18)),
+                                      TextSpan(
+                                          text: l.quantity.trim(),
+                                          style: const TextStyle(
+                                              color: _valueBlue,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18)),
+                                    ]),
+                                  ),
+                                ],
+                              ),
                             ),
                         ],
                       ],
                     ),
     );
   }
+
+  /// Right-aligned black label + blue value (native header row).
+  Widget _kv(String k, String v) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(k,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 17, color: Colors.black)),
+            ),
+            Expanded(
+              child: Text(v.isEmpty ? '—' : v,
+                  style: const TextStyle(
+                      color: _valueBlue, fontWeight: FontWeight.bold, fontSize: 17)),
+            ),
+          ],
+        ),
+      );
 }

@@ -29,6 +29,7 @@ import '../features/revieworders/order_approval_screen.dart';
 import '../features/revieworders/review_orders_screen.dart';
 import '../features/revieworders/select_store_screen.dart';
 import '../features/revieworders/store_order_detail_screen.dart';
+import '../features/revieworders/store_order_response_screen.dart';
 import '../features/revieworders/store_orders_list_screen.dart';
 import '../features/revieworders/view_device_orders_screen.dart';
 import '../features/login/login_screen.dart';
@@ -160,6 +161,9 @@ GoRouter createRouter() {
           path: Routes.viewStoreOrdersDetail,
           builder: (_, _) => const StoreOrderDetailScreen()),
       GoRoute(
+          path: Routes.viewStoreOrdersResponse,
+          builder: (_, _) => const StoreOrderResponseScreen()),
+      GoRoute(
           path: Routes.selectOrderType,
           builder: (_, _) => const SelectOrderTypeScreen()),
       GoRoute(
@@ -199,7 +203,6 @@ GoRouter createRouter() {
       GoRoute(
           path: Routes.chooseActiveCustomer,
           builder: (_, _) => const ChooseActiveCustomerScreen()),
-      placeholder(Routes.viewStoreOrdersResponse, 'Order Response'),
       placeholder(Routes.standingOrderTemplateSelect, 'Templates'),
       GoRoute(
         path: Routes.orderItemDetail,

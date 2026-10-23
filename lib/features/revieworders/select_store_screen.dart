@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/session/session_providers.dart';
 import '../../router/app_routes.dart';
 import '../orderentry/order_widgets.dart';
 import 'store_orders_controller.dart';
@@ -21,6 +22,7 @@ class _State extends ConsumerState<SelectStoreScreen> {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
     final ctrl = ref.read(storeOrdersControllerProvider.notifier);
+    final activeStore = ref.watch(sessionManagerProvider).getActiveStoreId();
     final q = _search.trim().toLowerCase();
     final customers = ctrl.customers
         .where((c) =>
@@ -30,7 +32,10 @@ class _State extends ConsumerState<SelectStoreScreen> {
         .toList();
 
     return Scaffold(
-      appBar: orderAppBar(subtitle: 'SELECT STORE', height: 60),
+      appBar: orderAppBar(
+          subtitle: 'SELECT CUSTOMER',
+          third: activeStore.isEmpty ? null : 'STORE: $activeStore',
+          height: 72),
       bottomNavigationBar: OrderBottomBar(onBack: () => context.pop()),
       body: Column(
         children: [
@@ -39,7 +44,7 @@ class _State extends ConsumerState<SelectStoreScreen> {
             child: TextField(
               onChanged: (v) => setState(() => _search = v),
               decoration: InputDecoration(
-                hintText: 'Search store',
+                hintText: 'filter customers...',
                 prefixIcon: Icon(Icons.search, color: primary),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 isDense: true,

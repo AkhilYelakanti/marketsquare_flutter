@@ -495,6 +495,42 @@ class OrderRepository {
     }
   }
 
+  /// ORDER_RESPONSE: the acknowledgement receipt for a previously sent order
+  /// (RESPONSE button on REVIEW ORDER DETAILS).
+  Future<RepoResult<OrderResponseReceipt>> getOrderResponse({
+    required SessionManager session,
+    required String storeId,
+    required String confirmationId,
+    required String transactionId,
+    required String versionId,
+  }) async {
+    final auth = session.getAuthToken();
+    if (auth == null || auth.isEmpty) return RepoResult.failure(StateError('auth missing'));
+    final url = session.getServiceUrl('ORDER_RESPONSE');
+    if (url == null) return RepoResult.failure(StateError('no ORDER_RESPONSE url'));
+    final payload = jsonEncode({
+      'header': {
+        'storeId': storeId,
+        'userName': session.getUserId() ?? '',
+        'versionId': versionId,
+        'appOS': 'Android',
+      },
+      'data': {'confirmationId': confirmationId, 'transactionId': transactionId},
+    });
+    final raw = await _post(url, auth, payload);
+    if (!raw.isSuccess) return RepoResult.failure(raw.error);
+    try {
+      final receipt = OrderResponseReceipt.fromResponseJson(
+          jsonDecode(raw.value!) as Map<String, dynamic>);
+      if (receipt == null) {
+        return RepoResult.failure(StateError('No response data returned'));
+      }
+      return RepoResult.success(receipt);
+    } catch (e) {
+      return RepoResult.failure(e);
+    }
+  }
+
   Future<RepoResult<String>> _post(
       String url, String authToken, String payloadJson) async {
     try {
