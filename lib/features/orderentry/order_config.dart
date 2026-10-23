@@ -8,6 +8,24 @@ import 'tile_config.dart';
 String normalizeTypeKey(String raw) =>
     raw.trim().toUpperCase().replaceAll(' ', '_').replaceAll('-', '_');
 
+/// Maps a LOV `orderTotals` key (totalItem/totalCube/…) to a value key + prefix.
+({String key, String prefix}) _mapTotalKey(String raw) {
+  switch (raw.trim()) {
+    case 'totalItem':
+      return (key: 'ITEM_QTY', prefix: '');
+    case 'totalCases':
+      return (key: 'CASE_QTY', prefix: '');
+    case 'totalCube':
+      return (key: 'CUBE', prefix: '');
+    case 'totalEst':
+      return (key: 'EST_VALUE', prefix: '\$');
+    case 'totalAllowance':
+      return (key: 'ALLOWANCE', prefix: '\$');
+    default:
+      return (key: raw.trim().toUpperCase(), prefix: '');
+  }
+}
+
 final _dynamicSpec = RegExp(r'^(data\d+|date\d+)_(.+)$', caseSensitive: false);
 
 /// Parses "data1_STORE_ACCOUNT" → (DATA1, "STORE ACCOUNT", dropdown|text|date).
@@ -93,6 +111,10 @@ class OrderConfig {
   final Map<String, List<String>> optionalFieldsMap;
   final List<OrderControlButton> controlButtons;
   final List<OrderTotalField> totalFields;
+  /// Totals keyed by request type (real LOV shape); falls back to [totalFields].
+  final Map<String, List<OrderTotalField>> totalsByType;
+  /// Fallback tile config (`defaultTileConfig`) for the catalog / unmapped types.
+  final OrderTileConfig? defaultTile;
   final List<String> data1LovValues;
   final List<String> crReasonCodes;
   final List<String> crTypes;
@@ -124,6 +146,8 @@ class OrderConfig {
     required this.optionalFieldsMap,
     required this.controlButtons,
     required this.totalFields,
+    this.totalsByType = const {},
+    this.defaultTile,
     required this.data1LovValues,
     required this.crReasonCodes,
     required this.crTypes,
@@ -144,10 +168,19 @@ class OrderConfig {
     this.orderTileConfigs = const {},
   });
 
-  /// Tile config for a request type (case-insensitive), or null.
+  /// Tile config for a request type, falling back to the default tile config.
   OrderTileConfig? getOrderTileConfig(String? requestType) {
-    if (requestType == null) return null;
-    return orderTileConfigs[requestType.toUpperCase()];
+    if (requestType == null) return defaultTile;
+    return orderTileConfigs[normalizeTypeKey(requestType)] ?? defaultTile;
+  }
+
+  /// Totals row for a request type (real LOV is keyed by type; else defaults).
+  List<OrderTotalField> totalFieldsForType(String? requestType) {
+    if (requestType != null) {
+      final t = totalsByType[normalizeTypeKey(requestType)];
+      if (t != null && t.isNotEmpty) return t;
+    }
+    return totalFields.isNotEmpty ? totalFields : defaultTotalFields;
   }
 
   static const defaultRequestTypes = [
@@ -303,10 +336,24 @@ class OrderConfig {
     // Control buttons (map or array)
     final controlButtons = _parseControlButtons(root['orderControlButtons']);
 
-    // Totals
+    // Totals. Real LOV keys this by request type:
+    //   orderTotals: { ITEM_ORDER: { totalItem: "Total Item Qty", ... }, ... }
+    // (older/demo configs used a flat list of {key,label,prefix}).
+    final totalsByType = <String, List<OrderTotalField>>{};
     final totals = <OrderTotalField>[];
     final rawTotals = root['orderTotals'];
-    if (rawTotals is List) {
+    if (rawTotals is Map) {
+      rawTotals.forEach((type, m) {
+        if (m is! Map) return;
+        final list = <OrderTotalField>[];
+        m.forEach((k, label) {
+          final mapped = _mapTotalKey(k.toString());
+          list.add(OrderTotalField(
+              key: mapped.key, label: label.toString(), prefix: mapped.prefix));
+        });
+        if (list.isNotEmpty) totalsByType[normalizeTypeKey(type.toString())] = list;
+      });
+    } else if (rawTotals is List) {
       for (final el in rawTotals) {
         if (el is Map) {
           final key = (el['key'] ?? '').toString().trim();
@@ -355,18 +402,28 @@ class OrderConfig {
     }
     final maxQty = int.tryParse((root['allowedMaxQuantity'] ?? '').toString().trim());
 
-    // Tile configs: tileByRequestType[type] = configName → tileConfigMap[configName]
+    // Tile configs: tileByRequestType[type] = configName → tileConfigMap[configName],
+    // with `defaultTileConfig` naming the fallback (used by the item catalog and
+    // any request type without an explicit mapping).
     final tiles = <String, OrderTileConfig>{};
     final byType = root['tileByRequestType'];
     final configMap = root['tileConfigMap'];
-    if (byType is Map && configMap is Map) {
-      byType.forEach((type, cfgName) {
-        final cfg = configMap[cfgName.toString()];
-        if (cfg is Map) {
-          tiles[type.toString().toUpperCase()] =
-              parseTileConfig(Map<String, dynamic>.from(cfg));
-        }
-      });
+    OrderTileConfig? defaultTile;
+    if (configMap is Map) {
+      final defName = (root['defaultTileConfig'] ?? '').toString().trim();
+      final defCfg = defName.isNotEmpty ? configMap[defName] : null;
+      if (defCfg is Map) {
+        defaultTile = parseTileConfig(Map<String, dynamic>.from(defCfg));
+      }
+      if (byType is Map) {
+        byType.forEach((type, cfgName) {
+          final cfg = configMap[cfgName.toString()];
+          if (cfg is Map) {
+            tiles[normalizeTypeKey(type.toString())] =
+                parseTileConfig(Map<String, dynamic>.from(cfg));
+          }
+        });
+      }
     }
 
     return OrderConfig(
@@ -378,6 +435,8 @@ class OrderConfig {
       optionalFieldsMap: optional,
       controlButtons: controlButtons,
       totalFields: totals.isNotEmpty ? totals : defaultTotalFields,
+      totalsByType: totalsByType,
+      defaultTile: defaultTile,
       data1LovValues: _strList(root, ['data1DropDownValues']),
       crReasonCodes: _strList(root, ['crReasonCodes']),
       crTypes: _strList(root, ['crTypes']),

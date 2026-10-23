@@ -114,26 +114,66 @@ class ItemTileCard extends StatelessWidget {
   }
 
   Widget _configured(BuildContext context, Color primary) {
-    // Group elements by grid row, ordered; within a row order by column.
-    final elements = [...config!.elements]..sort((a, b) {
-        final r = a.sortRow.compareTo(b.sortRow);
-        return r != 0 ? r : a.sortCol.compareTo(b.sortCol);
-      });
+    // Native tile layout = image block on the left, text fields (grouped by grid
+    // row, ordered by column) in the middle, qty stepper on the right.
+    TileElement? imageEl;
+    TileElement? qtyEl;
+    final textEls = <TileElement>[];
+    for (final e in config!.elements) {
+      if (e.isImage) {
+        imageEl ??= e;
+      } else if (e.isQtyEntry) {
+        qtyEl ??= e;
+      } else {
+        textEls.add(e);
+      }
+    }
+    textEls.sort((a, b) {
+      final r = a.sortRow.compareTo(b.sortRow);
+      return r != 0 ? r : a.sortCol.compareTo(b.sortCol);
+    });
     final byRow = <int, List<TileElement>>{};
-    for (final e in elements) {
+    for (final e in textEls) {
       (byRow[e.sortRow] ??= []).add(e);
     }
     final rows = byRow.keys.toList()..sort();
-    return Column(
+
+    final textColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final r in rows)
-          Row(
-            children: [
-              for (final e in byRow[r]!) Flexible(child: _cell(e, primary)),
-            ],
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final e in byRow[r]!) Flexible(child: _cell(e, primary)),
+              ],
+            ),
           ),
+      ],
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (imageEl != null) ...[
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F2F2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.image, size: 30, color: Colors.black26),
+          ),
+          const SizedBox(width: 8),
+        ],
+        Expanded(child: textColumn),
+        const SizedBox(width: 8),
+        _qtyStepper(primary),
       ],
     );
   }

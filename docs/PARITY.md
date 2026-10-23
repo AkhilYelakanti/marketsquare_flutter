@@ -19,7 +19,9 @@ parity, **P3** = polish. Status: ☐ todo · ◐ partial · ☑ done.
 - ◐ Refresh Data screen (layout done; AD PROMO + image count show "—")
 
 ## Order entry
-- ☐ **P1** Rich item tiles from `tileConfigMap` (per-request-type configs) — image, List/Upcharge/Deal/Delivered cost, In Stock/LOQ, qty stepper, Ucost/SRP/CUBE/GM%, Prv.Orders; DS/SI watermarks; deal highlight. Currently simple line rows + default config.
+- ◐ **P1** Rich item tiles from `tileConfigMap` — parser handles real format (9×9 "RC" positions, CSS, CALCULATED/IMAGE, `tileByRequestType` + `defaultTileConfig`); order-filling lines + order item search now render `ItemTileCard`. Remaining: precise 9×9 cell layout to match native, real item images (needs image service), deal highlight. Verify against real items on backend login.
+- ☑ `orderTotals` parsed as dict-by-type (totalItem/totalEst/totalCube/totalCases); per-type totals row
+- ☑ `defaultTileConfig` wired (fallback / item catalog)
 - ☐ **P1** Per-order-type behaviour & field sets:
   - ITEM_ORDER, AD_ORDER (ad date/id)
   - PRICE_CHANGE (BASE / NEW price fields, item-detail edit)

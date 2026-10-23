@@ -24,7 +24,6 @@ class OrderFillingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final primary = Theme.of(context).colorScheme.primary;
     final st = ref.watch(orderEntryControllerProvider);
-    final ctrl = ref.read(orderEntryControllerProvider.notifier);
     final lines = st.orderLines.reversed.toList(); // newest first (native default)
 
     return Scaffold(
@@ -55,17 +54,9 @@ class OrderFillingScreen extends ConsumerWidget {
                     itemCount: lines.length,
                     separatorBuilder: (_, _) =>
                         const Divider(height: 0.5, color: Color(0xFFEEEEEE)),
-                    itemBuilder: (_, i) => _LineRow(
-                      line: lines[i],
-                      primary: primary,
-                      onInc: () => ctrl.commitItem(lines[i].item,
-                          '${(int.tryParse(lines[i].qty) ?? 0) + 1}'),
-                      onDec: () {
-                        final n = (int.tryParse(lines[i].qty) ?? 0) - 1;
-                        ctrl.commitItem(lines[i].item, n <= 0 ? '0' : '$n');
-                      },
-                      onRemove: () => ctrl.removeLine(lines[i].item),
-                    ),
+                    // Rich config-driven tile (image, cost fields, qty stepper)
+                    // from the LOV tile config for this order type.
+                    itemBuilder: (_, i) => OrderItemTile(item: lines[i].item),
                   ),
           ),
           const OrderAlertHost(),
@@ -195,7 +186,7 @@ class _TotalsBar extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          for (final t in st.config.totalFields)
+          for (final t in st.config.totalFieldsForType(st.selectedOrderType))
             Column(
               children: [
                 Text('${t.prefix}${st.getTotalValue(t.key)}',
@@ -205,58 +196,6 @@ class _TotalsBar extends ConsumerWidget {
                     style: const TextStyle(fontSize: 10, color: Colors.black54)),
               ],
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LineRow extends StatelessWidget {
-  final OrderLine line;
-  final Color primary;
-  final VoidCallback onInc;
-  final VoidCallback onDec;
-  final VoidCallback onRemove;
-  const _LineRow({
-    required this.line,
-    required this.primary,
-    required this.onInc,
-    required this.onDec,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final number = line.item[ItemRepository.colItem] ?? '';
-    final desc = line.item[ItemRepository.colDesc] ?? '';
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(desc.isEmpty ? number : desc,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                Text('# $number',
-                    style: const TextStyle(fontSize: 11, color: Colors.black54)),
-              ],
-            ),
-          ),
-          IconButton(
-              onPressed: onDec,
-              icon: Icon(Icons.remove_circle_outline, color: primary),
-              visualDensity: VisualDensity.compact),
-          Text(line.qty, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          IconButton(
-              onPressed: onInc,
-              icon: Icon(Icons.add_circle_outline, color: primary),
-              visualDensity: VisualDensity.compact),
-          IconButton(
-              onPressed: onRemove,
-              icon: const Icon(Icons.delete_outline, color: Colors.black38),
-              visualDensity: VisualDensity.compact),
         ],
       ),
     );
