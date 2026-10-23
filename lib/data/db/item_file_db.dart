@@ -143,6 +143,14 @@ class ItemFileDb {
 
     final safeItem = meta.itemColName; // metadata stores sanitized names
     final safeDept = meta.deptColName;
+
+    // Composite index on (item, dept) so each UPDATE is an indexed lookup, not a
+    // full table scan. Without this the merge is O(rows × tableSize) and a full
+    // inventory file can take many minutes. (Native parity: idx_item_dept.)
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS "idx_${tableItem}_item_dept" '
+        'ON "$tableItem" ("$safeItem", "$safeDept")');
+
     final setClause = updateCols.map((c) => '"${c.name}" = ?').join(', ');
     final sql =
         'UPDATE "$tableItem" SET $setClause WHERE "$safeItem" = ? AND "$safeDept" = ?';
