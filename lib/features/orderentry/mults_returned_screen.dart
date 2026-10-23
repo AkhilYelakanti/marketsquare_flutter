@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../data/db/item_repository.dart';
 import 'order_entry_controller.dart';
 import 'order_widgets.dart';
+import 'tile_widgets.dart';
 
 /// Port of native `MultsReturnedScreen` ("MULTIPLE ITEMS RETURNED"): shown when
 /// one scanned/keyed code resolves to several catalog rows. Tapping a row adds
@@ -36,22 +36,17 @@ class MultsReturnedScreen extends ConsumerWidget {
               itemCount: candidates.length,
               separatorBuilder: (_, _) =>
                   const Divider(height: 0.5, color: Color(0xFFEEEEEE)),
-              itemBuilder: (_, i) {
-                final item = candidates[i];
-                final number = item[ItemRepository.colItem] ?? '';
-                final desc = item[ItemRepository.colDesc] ?? '';
-                return ListTile(
-                  title: Text(desc.isEmpty ? number : desc,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('# $number'),
-                  trailing: const Icon(Icons.add_circle_outline),
-                  onTap: () {
-                    ctrl.commitItem(item, '1');
-                    ctrl.clearMults();
-                    context.pop();
-                  },
-                );
-              },
+              // Render each candidate in the same configured tile format; tapping
+              // the tile adds it (qty 1) and returns to Order Filling.
+              itemBuilder: (_, i) => ItemTileCard(
+                item: candidates[i],
+                config: st.config.getOrderTileConfig(st.selectedOrderType),
+                onTap: () {
+                  ctrl.commitItem(candidates[i], '1');
+                  ctrl.clearMults();
+                  context.pop();
+                },
+              ),
             ),
     );
   }

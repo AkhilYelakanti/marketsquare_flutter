@@ -131,6 +131,9 @@ class OrderConfig {
   final List<String> deptList;
   final List<String> storeCategoryList;
   final List<String> storeInvoices;
+  /// Item-detail field keys (LOV `itemAttributes`, e.g. ITEM_DETAILS_1..3)
+  /// rendered as HTML on the item-detail screen.
+  final List<String> itemAttributes;
   // Alerts + tiles
   final List<ItemStatusAlertConfig> itemStatusAlertConfigs;
   final List<AlertMessagesConfig> alertMessagesConfigs;
@@ -162,6 +165,7 @@ class OrderConfig {
     this.deptList = const [],
     this.storeCategoryList = const [],
     this.storeInvoices = const [],
+    this.itemAttributes = const [],
     this.itemStatusAlertConfigs = const [],
     this.alertMessagesConfigs = const [],
     this.allowedMaxQuantity,
@@ -451,6 +455,7 @@ class OrderConfig {
       deptList: _strList(root, ['departments', 'departmentList']),
       storeCategoryList: _strList(root, ['storeCategoryList']),
       storeInvoices: _strList(root, ['storeInvoices']),
+      itemAttributes: _strList(root, ['itemAttributes']),
       itemStatusAlertConfigs: statusAlerts,
       alertMessagesConfigs: alertMsgs,
       allowedMaxQuantity: (maxQty != null && maxQty > 0) ? maxQty : null,

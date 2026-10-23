@@ -8,6 +8,7 @@ import '../../data/models/order_models.dart';
 import '../../router/app_routes.dart';
 import '../../widgets/hardware_scan_listener.dart';
 import '../../widgets/scanner_sheet.dart';
+import 'field_resolver.dart';
 import 'order_entry_controller.dart';
 import 'order_widgets.dart';
 import 'tile_widgets.dart';
@@ -25,7 +26,8 @@ class OrderFillingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final primary = Theme.of(context).colorScheme.primary;
     final st = ref.watch(orderEntryControllerProvider);
-    final lines = st.orderLines.reversed.toList(); // newest first (native default)
+    final ctrl = ref.read(orderEntryControllerProvider.notifier);
+    final lines = st.sortedLines; // active QTY/CHARGE sort, else newest-first
 
     return Scaffold(
       appBar: orderAppBar(
@@ -53,7 +55,10 @@ class OrderFillingScreen extends ConsumerWidget {
           _SortBar(
             primary: primary,
             partition: st.selectedPartition,
+            sort: st.activeSort,
             onPartition: () => context.push(Routes.selectPartition),
+            onQtySort: () => ctrl.toggleSort(charge: false),
+            onChargeSort: () => ctrl.toggleSort(charge: true),
             onSearch: () => context.push(Routes.orderItemSearch),
           ),
           // Inline "tap to key item" entry (item number / UPC) → add.
@@ -93,7 +98,18 @@ class OrderFillingScreen extends ConsumerWidget {
   Future<void> _addByCode(BuildContext context, WidgetRef ref, String code) async {
     final repo = ref.read(itemRepositoryProvider);
     final ctrl = ref.read(orderEntryControllerProvider.notifier);
-    final matches = await repo.queryByExactCode(code);
+    final st = ref.read(orderEntryControllerProvider);
+    var matches = await repo.queryByExactCode(code);
+    // restrictDepartment=Y: only items in the selected partition's department
+    // are orderable (native post-query partition filter).
+    if (st.config.deptRestricted && matches.isNotEmpty) {
+      final part = st.selectedPartition.toUpperCase();
+      matches = matches.where((m) {
+        final d = resolveItemField('DEPT_NAME', m);
+        final dept = d.isNotEmpty ? d : resolveItemField('DEPT', m);
+        return dept.toUpperCase() == part;
+      }).toList();
+    }
     if (!context.mounted) return;
     if (matches.isEmpty) {
       // Not on file: alert the user (native beeps twice), but keep the keyed
@@ -155,30 +171,47 @@ class OrderFillingScreen extends ConsumerWidget {
   }
 }
 
-/// Partition / QTY / CHARGE summary bar + SEARCH (native filter-sort bar).
+/// Partition / QTY / CHARGE sort bar + SEARCH (native filter-sort bar).
 class _SortBar extends StatelessWidget {
   final Color primary;
   final String partition;
+  final OrderSort sort;
   final VoidCallback onPartition;
+  final VoidCallback onQtySort;
+  final VoidCallback onChargeSort;
   final VoidCallback onSearch;
   const _SortBar({
     required this.primary,
     required this.partition,
+    required this.sort,
     required this.onPartition,
+    required this.onQtySort,
+    required this.onChargeSort,
     required this.onSearch,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget sort(String label) => Row(
+    Widget sortToggle(String label, VoidCallback onTap, bool asc, bool desc) {
+      final active = asc || desc;
+      return InkWell(
+        onTap: onTap,
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('$label ',
                 style: const TextStyle(
                     fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey)),
-            const Text('—', style: TextStyle(fontSize: 12, color: Colors.black54)),
+            Text(asc ? '↑' : (desc ? '↓' : '—'),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: active ? primary : Colors.black54)),
           ],
-        );
+        ),
+      );
+    }
+
     return Container(
       color: const Color(0xFFEDEDED),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -203,9 +236,11 @@ class _SortBar extends StatelessWidget {
               ),
             ),
           ),
-          sort('QTY'),
+          sortToggle('QTY', onQtySort, sort == OrderSort.qtyAsc,
+              sort == OrderSort.qtyDesc),
           const SizedBox(width: 12),
-          sort('CHARGE'),
+          sortToggle('CHARGE', onChargeSort, sort == OrderSort.chargeAsc,
+              sort == OrderSort.chargeDesc),
           const SizedBox(width: 10),
           SizedBox(
             height: 30,

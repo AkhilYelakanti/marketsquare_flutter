@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/html_text.dart';
+import '../../router/app_routes.dart';
 import 'alert_pipeline.dart';
 import 'field_resolver.dart';
 import 'order_entry_controller.dart';
@@ -22,6 +24,9 @@ class ItemTileCard extends StatelessWidget {
   final VoidCallback? onTap;
   final String? watermark;
   final String? backgroundHex;
+  /// Current value of an editable (FILL_EDITABLE) tile field.
+  final String Function(String fieldKey)? fieldValue;
+  final void Function(String fieldKey, String value)? onFieldChange;
 
   const ItemTileCard({
     super.key,
@@ -33,6 +38,8 @@ class ItemTileCard extends StatelessWidget {
     this.onTap,
     this.watermark,
     this.backgroundHex,
+    this.fieldValue,
+    this.onFieldChange,
   });
 
   @override
@@ -185,6 +192,14 @@ class ItemTileCard extends StatelessWidget {
             content = _imageCell();
           } else if (e.isQtyEntry) {
             content = _qtyEntry(primary);
+          } else if (e.valueType.toUpperCase() == 'FILL_EDITABLE') {
+            content = _EditableCell(
+              initial: fieldValue?.call(e.attributeValue) ?? '',
+              primary: primary,
+              onChanged: onFieldChange == null
+                  ? null
+                  : (v) => onFieldChange!(e.attributeValue, v),
+            );
           } else {
             String v;
             if (e.isCalculated) {
@@ -294,6 +309,57 @@ class ItemTileCard extends StatelessWidget {
   }
 }
 
+/// Editable FILL_EDITABLE tile cell (e.g. Cust.Price / Dict.Price).
+class _EditableCell extends StatefulWidget {
+  final String initial;
+  final Color primary;
+  final ValueChanged<String>? onChanged;
+  const _EditableCell(
+      {required this.initial, required this.primary, this.onChanged});
+
+  @override
+  State<_EditableCell> createState() => _EditableCellState();
+}
+
+class _EditableCellState extends State<_EditableCell> {
+  late final TextEditingController _c =
+      TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(2),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: widget.primary.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(3),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        alignment: Alignment.center,
+        child: TextField(
+          controller: _c,
+          enabled: widget.onChanged != null,
+          onChanged: widget.onChanged,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: const TextStyle(fontSize: 12),
+          decoration: const InputDecoration(
+            isDense: true,
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Wraps an item in an [ItemTileCard] bound to the order controller: reflects
 /// the current line qty and commits through the alert pipeline.
 class OrderItemTile extends ConsumerWidget {
@@ -313,6 +379,9 @@ class OrderItemTile extends ConsumerWidget {
       backgroundHex: line?.alertBackgroundHex,
       onQty: (v) => ctrl.commitItem(item, v),
       onDelete: () => ctrl.removeLine(item),
+      onTap: () => context.push(Routes.orderItemDetail, extra: item),
+      fieldValue: (k) => st.customField(item, k),
+      onFieldChange: (k, v) => ctrl.setCustomField(item, k, v),
     );
   }
 }

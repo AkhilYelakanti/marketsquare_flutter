@@ -35,6 +35,7 @@ import '../features/login/login_screen.dart';
 import '../features/orderentry/mults_returned_screen.dart';
 import '../features/orderentry/order_filling_screen.dart';
 import '../features/orderentry/order_header_screen.dart';
+import '../features/orderentry/order_item_detail_screen.dart';
 import '../features/orderentry/order_item_search_screen.dart';
 import '../features/orderentry/select_customer_screen.dart';
 import '../features/otheroptions/other_options_screen.dart';
@@ -200,7 +201,11 @@ GoRouter createRouter() {
           builder: (_, _) => const ChooseActiveCustomerScreen()),
       placeholder(Routes.viewStoreOrdersResponse, 'Order Response'),
       placeholder(Routes.standingOrderTemplateSelect, 'Templates'),
-      placeholder(Routes.orderItemDetail, 'Order Item'),
+      GoRoute(
+        path: Routes.orderItemDetail,
+        builder: (_, s) =>
+            OrderItemDetailScreen(item: s.extra as Map<String, String>?),
+      ),
       placeholder(Routes.orderItemCatalog, 'Order Item Catalog'),
       placeholder(Routes.orderItemDeptList, 'Departments'),
       placeholder(Routes.orderItemCsCatList, 'CS Categories'),

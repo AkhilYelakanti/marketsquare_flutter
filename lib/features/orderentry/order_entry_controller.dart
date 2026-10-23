@@ -10,6 +10,9 @@ import '../../data/session/session_providers.dart';
 import 'alert_pipeline.dart';
 import 'order_config.dart';
 
+/// Order-line sort modes for the QTY / CHARGE sort toggles.
+enum OrderSort { none, qtyAsc, qtyDesc, chargeAsc, chargeDesc }
+
 /// Immutable state for the whole Order Entry flow (port of OrderEntryViewModel
 /// state). Shared across every order screen via [orderEntryControllerProvider].
 class OrderEntryState {
@@ -23,6 +26,9 @@ class OrderEntryState {
   final String multsScannedCode;
   final int? editingOrderId;
   final PendingItemStatusAlert? pendingAlert;
+  final OrderSort activeSort;
+  /// Per-item editable tile fields (FILL_EDITABLE), keyed `"itemCode|FIELD"`.
+  final Map<String, String> customFields;
 
   OrderEntryState({
     required this.config,
@@ -35,7 +41,12 @@ class OrderEntryState {
     this.multsScannedCode = '',
     this.editingOrderId,
     this.pendingAlert,
+    this.activeSort = OrderSort.none,
+    this.customFields = const {},
   });
+
+  String customField(Map<String, String> item, String key) =>
+      customFields['${item[ItemRepository.colItem] ?? ''}|$key'] ?? '';
 
   OrderEntryState copyWith({
     OrderConfig? config,
@@ -48,6 +59,8 @@ class OrderEntryState {
     String? multsScannedCode,
     int? editingOrderId,
     PendingItemStatusAlert? pendingAlert,
+    OrderSort? activeSort,
+    Map<String, String>? customFields,
     bool clearCustomer = false,
     bool clearOrderType = false,
     bool clearEditingId = false,
@@ -67,7 +80,35 @@ class OrderEntryState {
         editingOrderId:
             clearEditingId ? null : (editingOrderId ?? this.editingOrderId),
         pendingAlert: clearAlert ? null : (pendingAlert ?? this.pendingAlert),
+        activeSort: activeSort ?? this.activeSort,
+        customFields: customFields ?? this.customFields,
       );
+
+  /// Order lines in display order: sorted by the active QTY/CHARGE sort, else
+  /// newest-first (native default).
+  List<OrderLine> get sortedLines {
+    final list = [...orderLines];
+    double chargeOf(OrderLine l) {
+      final q = double.tryParse(l.qty) ?? 0;
+      final p = double.tryParse(l.item[ItemRepository.colAdEffective] ?? '') ?? 0;
+      return q * p;
+    }
+
+    int qtyOf(OrderLine l) => int.tryParse(l.qty) ?? 0;
+    switch (activeSort) {
+      case OrderSort.qtyAsc:
+        list.sort((a, b) => qtyOf(a).compareTo(qtyOf(b)));
+      case OrderSort.qtyDesc:
+        list.sort((a, b) => qtyOf(b).compareTo(qtyOf(a)));
+      case OrderSort.chargeAsc:
+        list.sort((a, b) => chargeOf(a).compareTo(chargeOf(b)));
+      case OrderSort.chargeDesc:
+        list.sort((a, b) => chargeOf(b).compareTo(chargeOf(a)));
+      case OrderSort.none:
+        return list.reversed.toList();
+    }
+    return list;
+  }
 
   // ── Convenience accessors (port of VM getters) ──────────────────────────────
   String get selectedPartition =>
@@ -190,6 +231,34 @@ class OrderEntryController extends Notifier<OrderEntryState> {
   void setFieldValue(String key, String value) =>
       state = state.copyWith(headerValues: {...state.headerValues, key: value});
   void setPartition(String p) => setFieldValue('PARTITION', p);
+
+  /// Stores an editable tile field (FILL_EDITABLE) value for an item.
+  void setCustomField(Map<String, String> item, String key, String value) {
+    final code = item[ItemRepository.colItem] ?? '';
+    final m = {...state.customFields, '$code|$key': value};
+    state = state.copyWith(customFields: m);
+  }
+
+  /// Cycles the QTY or CHARGE sort: none → asc → desc → none (switching the
+  /// field starts at asc).
+  void toggleSort({required bool charge}) {
+    final cur = state.activeSort;
+    OrderSort next;
+    if (charge) {
+      next = cur == OrderSort.chargeAsc
+          ? OrderSort.chargeDesc
+          : cur == OrderSort.chargeDesc
+              ? OrderSort.none
+              : OrderSort.chargeAsc;
+    } else {
+      next = cur == OrderSort.qtyAsc
+          ? OrderSort.qtyDesc
+          : cur == OrderSort.qtyDesc
+              ? OrderSort.none
+              : OrderSort.qtyAsc;
+    }
+    state = state.copyWith(activeSort: next);
+  }
 
   List<FieldRow> fieldsForOrderType(String? type) =>
       state.config.fieldsForOrderType(type);
