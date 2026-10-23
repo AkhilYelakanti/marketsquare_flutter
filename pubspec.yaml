@@ -1,0 +1,63 @@
+name: marketsquare
+description: "MarketSquare Ordering — Flutter port (Android + iOS)."
+publish_to: 'none'
+
+# Mirrors the native app's versionName (4.0.27). versionCode = build number (+1).
+version: 4.0.27+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management + DI (maps from Compose ViewModel + StateFlow)
+  flutter_riverpod: ^2.6.1
+
+  # Navigation (maps from NavGraph routes)
+  go_router: ^14.6.2
+
+  # Networking (replaces Ktor client)
+  dio: ^5.7.0
+
+  # Local key/value session store (replaces SessionManager/SharedPreferences)
+  shared_preferences: ^2.3.3
+
+  # Firebase Cloud Messaging (push) — both platforms
+  firebase_core: ^3.8.0
+  firebase_messaging: ^15.1.5
+  flutter_local_notifications: ^18.0.1
+
+  # Barcode scanning (replaces CameraX + MLKit)
+  mobile_scanner: ^6.0.2
+
+  # Brand logo from remote URL (replaces Coil)
+  cached_network_image: ^3.4.1
+
+  # Device metadata for devicesetup request (deviceId, make/model/brand, OS version)
+  device_info_plus: ^11.2.0
+  package_info_plus: ^8.1.2
+
+  # Runtime permissions (camera, notifications)
+  permission_handler: ^11.3.1
+
+  # Local SQLite (replaces Room) — pending orders + item catalog
+  sqflite: ^2.4.1
+  path: ^1.9.0
+
+  # ZIP extraction for the item-file download (native unzips the ITEMS_REFRESH payload)
+  archive: ^3.6.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/sample_items.psv
