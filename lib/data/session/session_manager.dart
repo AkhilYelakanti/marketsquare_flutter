@@ -196,6 +196,26 @@ class SessionManager {
   /// `enableDebug` == Y → show the DEBUG / SCAN DEBUG tiles in Help.
   bool isDebugEnabled() => _lov1Flag('enableDebug');
 
+  /// Minimum characters before a catalog search fires (LOV1
+  /// `minSearchCharecterLength`, spelling preserved; default 3).
+  int getMinSearchChars() {
+    final v = int.tryParse(_lov1String('minSearchCharecterLength'));
+    return (v != null && v > 0) ? v : 3;
+  }
+
+  /// `savedItems` == Y → Manage Saved Items is enabled in Item Catalog.
+  bool isSavedItemsEnabled() => _lov1Flag('savedItems');
+
+  /// LOV1 `adPlanDates` — ad-plan period codes for the Search Deals AD PLAN list.
+  List<String> getAdPlanDates() => _lov1List('adPlanDates');
+
+  /// Deal store categories for the Search Deals CATEGORY list (LOV1
+  /// `storeCategoryList`; falls back to a single "All" entry when absent).
+  List<String> getDealCategories() {
+    final v = _lov1List('storeCategoryList');
+    return v.isEmpty ? const ['All'] : (['All', ...v]);
+  }
+
   /// LOV1 `scanParams` — one config map per scan interpreter type. Drives the
   /// Scan Debug conversion (drop/pad digits, check-digit handling, etc.).
   List<Map<String, dynamic>> getScanParams() {

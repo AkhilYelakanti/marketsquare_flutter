@@ -16,8 +16,8 @@ import '../features/help/scan_debug_screen.dart';
 import '../features/itemcatalog/catalog_list_screen.dart';
 import '../features/itemcatalog/item_catalog_screen.dart';
 import '../features/itemcatalog/item_filtered_list_screen.dart';
-import '../features/itemcatalog/item_images_screen.dart';
 import '../features/itemcatalog/saved_items_screen.dart';
+import '../features/itemcatalog/search_deals_screen.dart';
 import '../features/messages/messages_screen.dart';
 import '../features/itemcatalog/item_detail_screen.dart';
 import '../features/itemcatalog/item_search_screen.dart';
@@ -86,14 +86,15 @@ GoRouter createRouter() {
       GoRoute(path: Routes.refreshData, builder: (_, _) => const RefreshDataScreen()),
       GoRoute(
           path: Routes.itemDeptList,
-          builder: (_, _) => const CatalogListScreen(kind: 'DEPT', title: 'DEPARTMENTS')),
+          builder: (_, _) => const CatalogListScreen(kind: 'DEPT', title: 'BY DEPARTMENT')),
       GoRoute(
           path: Routes.itemCsCatList,
-          builder: (_, _) => const CatalogListScreen(kind: 'CS', title: 'CS CATEGORIES')),
+          builder: (_, _) =>
+              const CatalogListScreen(kind: 'CS', title: 'BY C&S CATEGORY')),
       GoRoute(
           path: Routes.itemNeilsonCatList,
           builder: (_, _) =>
-              const CatalogListScreen(kind: 'NEILSON', title: 'NEILSON CATEGORIES')),
+              const CatalogListScreen(kind: 'NEILSON', title: 'BY NEILSON CATEGORY')),
       GoRoute(
         path: Routes.itemFilteredList,
         builder: (_, s) => ItemFilteredListScreen(
@@ -104,13 +105,14 @@ GoRouter createRouter() {
         ),
       ),
       GoRoute(
-          path: Routes.searchDeals,
-          builder: (_, _) => const ItemFilteredListScreen(dealsOnly: true)),
+          path: Routes.searchDeals, builder: (_, _) => const SearchDealsScreen()),
       GoRoute(
-          path: Routes.manageSavedItems, builder: (_, _) => const SavedItemsScreen()),
+          path: Routes.manageSavedItems,
+          builder: (_, s) =>
+              SavedItemsScreen(dept: s.uri.queryParameters['dept'] ?? '')),
       GoRoute(
         path: Routes.itemImages,
-        builder: (_, s) => ItemImagesScreen(itemCode: s.uri.queryParameters['code']),
+        builder: (_, _) => const ItemSearchScreen(imageSearch: true),
       ),
       GoRoute(path: Routes.reviewOrders, builder: (_, _) => const ReviewOrdersScreen()),
       GoRoute(

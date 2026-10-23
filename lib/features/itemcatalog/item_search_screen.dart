@@ -5,12 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/db/item_repository.dart';
+import '../../data/session/session_providers.dart';
 import '../../router/app_routes.dart';
+import '../orderentry/order_widgets.dart';
+import 'catalog_tile.dart';
 
-/// Port of native `ItemSearchScreen` (catalog SEARCH ALL): debounced search of
-/// the item table; tap a row to view its detail.
+/// Catalog SEARCH ALL ITEMS (and SEARCH IMAGES when [imageSearch]): a keyed
+/// search of the item table that fires once the query reaches the LOV-configured
+/// minimum length. Results render with the default tile config.
 class ItemSearchScreen extends ConsumerStatefulWidget {
-  const ItemSearchScreen({super.key});
+  final bool imageSearch;
+  const ItemSearchScreen({super.key, this.imageSearch = false});
 
   @override
   ConsumerState<ItemSearchScreen> createState() => _State();
@@ -18,34 +23,45 @@ class ItemSearchScreen extends ConsumerStatefulWidget {
 
 class _State extends ConsumerState<ItemSearchScreen> {
   final _repo = ItemRepository();
+  final _controller = TextEditingController();
   String _query = '';
   bool _loading = false;
+  bool _searched = false;
   List<Map<String, String>> _results = [];
   Timer? _debounce;
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _controller.dispose();
     super.dispose();
   }
+
+  int get _minChars => ref.read(sessionManagerProvider).getMinSearchChars();
 
   void _onChanged(String v) {
     setState(() => _query = v);
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), () => _run(v));
-  }
-
-  Future<void> _run(String q) async {
-    if (q.trim().length < 3) {
-      setState(() => _results = []);
+    if (v.trim().length < _minChars) {
+      setState(() {
+        _results = [];
+        _searched = false;
+      });
       return;
     }
+    _debounce = Timer(const Duration(milliseconds: 400), _run);
+  }
+
+  Future<void> _run() async {
+    final q = _query.trim();
+    if (q.length < _minChars) return;
     setState(() => _loading = true);
-    final items = await _repo.searchAll(q);
+    final items = await _repo.queryItems(search: q, imageSearch: widget.imageSearch);
     if (mounted) {
       setState(() {
         _results = items;
         _loading = false;
+        _searched = true;
       });
     }
   }
@@ -54,20 +70,45 @@ class _State extends ConsumerState<ItemSearchScreen> {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
-      appBar: AppBar(title: const Text('SEARCH ALL ITEMS')),
+      appBar: orderAppBar(
+          subtitle: widget.imageSearch ? 'SEARCH IMAGES' : 'SEARCH ALL ITEMS',
+          height: 60),
+      bottomNavigationBar: OrderBottomBar(onBack: () => context.pop()),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(8),
-            child: TextField(
-              autofocus: true,
-              onChanged: _onChanged,
-              decoration: InputDecoration(
-                hintText: 'key a search string',
-                prefixIcon: Icon(Icons.search, color: primary),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                isDense: true,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    onChanged: _onChanged,
+                    onSubmitted: (_) => _run(),
+                    decoration: const InputDecoration(
+                      hintText: 'key a search string',
+                      border: UnderlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: _run,
+                  customBorder: const CircleBorder(),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primary,
+                      border: Border.all(color: primary, width: 2),
+                    ),
+                    child: const Icon(Icons.search, color: Colors.white, size: 26),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(child: _body()),
@@ -77,32 +118,21 @@ class _State extends ConsumerState<ItemSearchScreen> {
   }
 
   Widget _body() {
-    if (_query.trim().length < 3) {
-      return const _Empty('Enter at least 3 characters to search.');
+    if (_query.trim().length < _minChars) {
+      return _Empty('Enter at least $_minChars characters to search.');
     }
     if (_loading && _results.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_results.isEmpty) {
-      return const _Empty(
-          'No items found.\n(Load a catalog via Refresh Data if empty.)');
+    if (_searched && _results.isEmpty) {
+      return const _Empty('No items found.');
     }
-    return ListView.separated(
+    return ListView.builder(
       itemCount: _results.length,
-      separatorBuilder: (_, _) => const Divider(height: 0.5, color: Color(0xFFEEEEEE)),
-      itemBuilder: (_, i) {
-        final item = _results[i];
-        final number = item[ItemRepository.colItem] ?? '';
-        final desc = item[ItemRepository.colDesc] ?? '';
-        final dept = item[ItemRepository.colDept] ?? '';
-        return ListTile(
-          title: Text(desc.isEmpty ? number : desc,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text('# $number${dept.isNotEmpty ? '  •  $dept' : ''}'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.push(Routes.itemDetail, extra: item),
-        );
-      },
+      itemBuilder: (_, i) => CatalogItemTile(
+        item: _results[i],
+        onTap: () => context.push(Routes.itemDetail, extra: _results[i]),
+      ),
     );
   }
 }

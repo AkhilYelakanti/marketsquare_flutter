@@ -128,12 +128,23 @@ class ItemRepository {
   }
 
   /// Filtered item query (department / category / deals / text).
+  /// Extra columns to also match in a search (beyond item# + description).
+  /// `extraSearchKinds` names candidate-sets resolved against the live schema;
+  /// used by Search Images to also match IMAGE_ID / UPC_ITEM / UPC_CASE.
+  static const _imageSearchCols = [
+    ['IMAGE_ID', 'IMG_ID', 'IMAGEID', 'IMAGE_NAME'],
+    ['UPC_ITEM', 'UPC_ITEM_CODE'],
+    ['UPC_CASE', 'CASE_UPC'],
+    ['UPC', 'UPC_CODE', 'BARCODE'],
+  ];
+
   Future<List<Map<String, String>>> queryItems({
     String? dept,
     String? categoryKind, // 'CS' | 'NEILSON'
     String? category,
     bool dealsOnly = false,
     String? search,
+    bool imageSearch = false,
     int limit = 500,
     int offset = 0,
   }) async {
@@ -147,9 +158,16 @@ class ItemRepository {
       final itemCol = meta.itemColName.isNotEmpty ? meta.itemColName : null;
       final descCol = _resolve(meta.columns,
           const ['DESCRIPTION', 'ITEM_DESCRIPTION', 'ITEM_DESC', 'LONG_DESCRIPTION', 'DESC']);
+      final cols = <String?>[itemCol, descCol];
+      if (imageSearch) {
+        for (final cand in _imageSearchCols) {
+          cols.add(_resolve(meta.columns, cand));
+        }
+      }
       final parts = <String>[];
-      for (final c in [itemCol, descCol]) {
-        if (c != null) {
+      final seen = <String>{};
+      for (final c in cols) {
+        if (c != null && seen.add(c)) {
           parts.add('"$c" LIKE ?');
           args.add(like);
         }
