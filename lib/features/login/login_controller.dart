@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/constants.dart';
 import '../../core/device_meta.dart';
+import '../../data/db/app_database.dart';
 import '../../data/models/device_setup_request.dart';
 import '../../data/push/fcm_service.dart';
 import '../../data/session/session_providers.dart';
@@ -139,6 +140,12 @@ class LoginController extends AutoDisposeNotifier<LoginState> {
       return;
     }
 
+    // New login → wipe the previous user's data so nothing stale carries over
+    // (e.g. old IMPORTANT message alerts, another store's catalog/orders).
+    // Prefs (FCM token preserved) + all local DB tables, then save the new user.
+    await sm.clearSession();
+    await AppDatabase.instance.clearAllData();
+
     if (response.serviceUrlMap != null) {
       await sm.saveServiceUrls(response.serviceUrlMap!);
     }
@@ -157,7 +164,9 @@ class LoginController extends AutoDisposeNotifier<LoginState> {
     }
     await sm.saveAccessPin(s.password);
 
-    final tokenUrl = response.serviceUrlMap?[AppConstants.serviceKeyAccessToken];
+    // Resolve via the session map so the `ACCESS_TOKEN-INFRA2` variant is found
+    // (the backend keys the token endpoint with a suffix).
+    final tokenUrl = sm.getServiceUrl(AppConstants.serviceKeyAccessToken);
     if (tokenUrl == null || response.serviceId == null) {
       state = state.copyWith(
         isLoading: false,

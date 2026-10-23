@@ -74,6 +74,26 @@ class AppDatabase {
     );
   }
 
+  /// Wipes all per-user local data (orders, catalog, inventory, messages,
+  /// refresh metadata, and the dynamic item_file_data table). Called on login so
+  /// a new user never sees the previous user's data (native clears DB caches on
+  /// re-login).
+  Future<void> clearAllData() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final t in const [
+        'pending_orders',
+        'items',
+        'refresh_metadata',
+        'backroom_inventory',
+        'messages',
+      ]) {
+        await txn.delete(t).catchError((_) => 0);
+      }
+      await txn.execute('DROP TABLE IF EXISTS "item_file_data"');
+    });
+  }
+
   /// Schema metadata for the dynamic item_file_data / inventory_data tables
   /// (port of Room `refresh_metadata`). item_file_data itself is dropped and
   /// recreated on every ingest, so it is not declared here.

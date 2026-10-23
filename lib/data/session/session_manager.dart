@@ -39,8 +39,19 @@ class SessionManager {
     }
   }
 
-  String? getServiceUrl(String key) =>
-      _prefs.getString('$_keyServiceUrlPrefix$key');
+  /// Resolves a service URL by key. The backend keys the map with a variant
+  /// suffix (e.g. `ACCESS_TOKEN-INFRA2`, `ITEM_ORDER-ORDER1`), so an exact miss
+  /// falls back to a key equal to, or prefixed by `"$key-"`.
+  String? getServiceUrl(String key) {
+    final exact = _prefs.getString('$_keyServiceUrlPrefix$key');
+    if (exact != null) return exact;
+    for (final k in getAllServiceUrlKeys()) {
+      if (k == key || k.startsWith('$key-')) {
+        return _prefs.getString('$_keyServiceUrlPrefix$k');
+      }
+    }
+    return null;
+  }
 
   Set<String> getAllServiceUrlKeys() =>
       (_prefs.getStringList(_keyServiceUrlKeys) ?? const []).toSet();
