@@ -14,6 +14,15 @@ class AppConstants {
   /// Service URL map key that holds the OAuth token endpoint.
   static const String serviceKeyAccessToken = 'ACCESS_TOKEN';
 
+  /// LOV1 / order-dept-types config endpoint (holds scanParams, tiles, flags).
+  static const String serviceKeyOrderDeptTypes = 'ORDER_DEPT_TYPES';
+
+  /// Operational-manual PDF fetch endpoint (variant suffix `-MANUAL`).
+  static const String serviceKeyOperationalManual = 'OPERATIONAL_MANUAL';
+
+  /// Debug "Send Configuration" upload endpoint.
+  static const String serviceKeySendConfig = 'SEND_CONFIG';
+
   /// FCM data-payload key naming the target screen for a notification tap.
   static const String pushKeyScreen = 'screen';
 

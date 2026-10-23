@@ -193,6 +193,22 @@ class SessionManager {
   /// `displayInvoicePDF` == Y → show View Invoices - PDF.
   bool isInvoicePdfEnabled() => _lov1Flag('displayInvoicePDF');
 
+  /// `enableDebug` == Y → show the DEBUG / SCAN DEBUG tiles in Help.
+  bool isDebugEnabled() => _lov1Flag('enableDebug');
+
+  /// LOV1 `scanParams` — one config map per scan interpreter type. Drives the
+  /// Scan Debug conversion (drop/pad digits, check-digit handling, etc.).
+  List<Map<String, dynamic>> getScanParams() {
+    final v = lov1Root()?['scanParams'];
+    if (v is List) {
+      return v
+          .whereType<Map>()
+          .map((m) => m.map((k, val) => MapEntry(k.toString(), val)))
+          .toList();
+    }
+    return const [];
+  }
+
   // ── Rep customer list (Change Store) ──────────────────────────────────────────
   /// Customers a rep can switch between — LOV1 `storeNumbers` (or `customerList`).
   /// Entries are either `"ID-Name"` / `"ID"` strings or `{storeId, storeName}`

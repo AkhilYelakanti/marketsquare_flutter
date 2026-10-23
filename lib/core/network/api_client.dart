@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
+
+import 'api_log.dart';
 
 /// Thin Dio wrapper replacing the Ktor HttpClient.
 ///
@@ -25,8 +29,8 @@ class ApiClient {
     String url,
     Map<String, dynamic> body, {
     Map<String, String> headers = const {},
-  }) {
-    return dio.post(
+  }) async {
+    final res = await dio.post(
       url,
       data: body,
       options: Options(
@@ -35,6 +39,8 @@ class ApiClient {
         headers: headers,
       ),
     );
+    ApiLog.add(url, _enc(body), (res.data ?? '').toString());
+    return res;
   }
 
   /// POST a url-encoded form with extra headers (OAuth token request).
@@ -42,8 +48,8 @@ class ApiClient {
     String url,
     Map<String, String> form, {
     Map<String, String> headers = const {},
-  }) {
-    return dio.post(
+  }) async {
+    final res = await dio.post(
       url,
       data: form,
       options: Options(
@@ -52,5 +58,15 @@ class ApiClient {
         headers: headers,
       ),
     );
+    ApiLog.add(url, _enc(form), (res.data ?? '').toString());
+    return res;
+  }
+
+  String _enc(Object body) {
+    try {
+      return const JsonEncoder.withIndent('  ').convert(body);
+    } catch (_) {
+      return body.toString();
+    }
   }
 }

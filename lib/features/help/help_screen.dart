@@ -72,12 +72,15 @@ class HelpScreen extends ConsumerWidget {
               icon: Icons.qr_code_scanner,
               title: 'SCAN DEBUGGING',
               onTap: () => context.push(Routes.scanDebug)),
-          const SizedBox(height: 10),
-          _MenuTile(
-              primary: primary,
-              icon: Icons.settings,
-              title: 'DEBUG',
-              onTap: () => context.push(Routes.debug)),
+          // DEBUG tile is gated by the LOV1 `enableDebug` flag (native parity).
+          if (sm.isDebugEnabled()) ...[
+            const SizedBox(height: 10),
+            _MenuTile(
+                primary: primary,
+                icon: Icons.settings,
+                title: 'DEBUG',
+                onTap: () => context.push(Routes.debug)),
+          ],
         ],
       ),
     );

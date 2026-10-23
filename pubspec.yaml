@@ -51,6 +51,12 @@ dependencies:
   # ZIP extraction for the item-file download (native unzips the ITEMS_REFRESH payload)
   archive: ^3.6.1
 
+  # Operational-guide PDF rendering (Android PdfRenderer / iOS PDFKit)
+  pdfx: ^2.6.0
+
+  # Temp-file path for the fetched operational-manual PDF
+  path_provider: ^2.1.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

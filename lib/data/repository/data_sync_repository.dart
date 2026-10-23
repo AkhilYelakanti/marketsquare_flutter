@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../core/network/api_log.dart';
 import 'login_repository.dart' show RepoResult;
 
 /// Download bundle: the raw item-file bytes + filename from Content-Disposition.
@@ -61,6 +62,27 @@ class DataSyncRepository {
     }
   }
 
+  /// Operational-manual PDF download (OPERATIONAL_MANUAL-MANUAL). Binary like
+  /// [getItemsRefresh]; the file payload itself is not logged to [ApiLog].
+  Future<RepoResult<List<int>>> getOperationalManualPdf(
+      String url, String token, Map<String, dynamic> request) async {
+    try {
+      final res = await _dio.post(url,
+          data: jsonEncode(request), options: _headers(token, ResponseType.bytes));
+      final code = res.statusCode ?? 0;
+      ApiLog.add(url, jsonEncode(request), 'HTTP $code (binary PDF, not shown)');
+      if (code < 200 || code >= 300) {
+        return RepoResult.failure(StateError('HTTP $code for OPERATIONAL_MANUAL'));
+      }
+      final data = res.data;
+      final bytes = data is List<int> ? data : <int>[];
+      if (bytes.isEmpty) return RepoResult.failure(StateError('Empty PDF'));
+      return RepoResult.success(bytes);
+    } catch (e) {
+      return RepoResult.failure(e);
+    }
+  }
+
   /// Text endpoints (LOV1 config, inventory).
   Future<RepoResult<String>> postText(
       String url, String token, Map<String, dynamic> request) async {
@@ -69,6 +91,7 @@ class DataSyncRepository {
           data: jsonEncode(request), options: _headers(token, ResponseType.plain));
       final code = res.statusCode ?? 0;
       final body = (res.data ?? '').toString();
+      ApiLog.add(url, jsonEncode(request), body);
       if (code >= 200 && code < 300) return RepoResult.success(body);
       return RepoResult.failure(StateError('HTTP $code'));
     } catch (e) {
