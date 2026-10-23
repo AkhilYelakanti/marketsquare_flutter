@@ -88,14 +88,10 @@ class SendOrdersController extends Notifier<SendOrdersState> {
 
   void initCurrentOrder(int id) => loadOrders(autoSelectId: id);
 
+  /// Single-select: picking a row clears any other (native "1 at a time").
   void toggleSelection(int id) {
-    final s = {...state.selectedIds};
-    if (s.contains(id)) {
-      s.remove(id);
-    } else {
-      s.add(id);
-    }
-    state = state.copyWith(selectedIds: s);
+    final selected = state.selectedIds.contains(id);
+    state = state.copyWith(selectedIds: selected ? <int>{} : {id});
   }
 
   Future<void> deleteOrder(int id) async {
