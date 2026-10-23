@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "37417722628",
+    "project_id": "marketsquare-4a371",
+    "storage_bucket": "marketsquare-4a371.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:37417722628:android:c4ca9ea5dd64a1cc35a651",
+        "android_client_info": {
+          "package_name": "com.ms.marketsquare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDjlhrhop_4R2tVDNScxof47VQcilFwedw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

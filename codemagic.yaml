@@ -1,0 +1,59 @@
+# Codemagic CI/CD for marketsquare_flutter
+#
+# Before the iOS workflow can run you must, in the Codemagic web UI:
+#   1. Connect this GitHub repo.
+#   2. Teams → Integrations → Apple Developer Portal: add an App Store Connect
+#      API key (.p8 + Key ID + Issuer ID from App Store Connect). Give that
+#      integration a NAME and put the same name under `integrations.app_store_connect`
+#      below (replace "CodemagicAppStoreKey").
+#   3. In App Store Connect, create the app record with bundle id com.ms.marketsquare.
+# The Apple Developer Program ($99/yr) is required for signing + TestFlight.
+
+workflows:
+  ios-testflight:
+    name: iOS – build & TestFlight
+    instance_type: mac_mini_m2        # macOS build machine (Codemagic provides it)
+    max_build_duration: 60
+    integrations:
+      app_store_connect: CodemagicAppStoreKey   # ← rename to your API-key integration
+    environment:
+      ios_signing:
+        distribution_type: app_store            # automatic signing for TestFlight/App Store
+        bundle_identifier: com.ms.marketsquare
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Install CocoaPods
+        script: find . -name "Podfile" -execdir pod install \;
+      - name: Apply signing profiles to Xcode project
+        script: xcode-project use-profiles
+      - name: Build signed IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true              # auto-upload build to TestFlight
+        # beta_groups:                          # optional: auto-add to a tester group
+        #   - Internal Testers
+
+  android-apk:
+    name: Android – build APK
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      flutter: stable
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Build release APK
+        script: flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
