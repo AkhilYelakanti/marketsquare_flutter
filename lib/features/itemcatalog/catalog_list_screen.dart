@@ -21,7 +21,8 @@ class _State extends ConsumerState<CatalogListScreen> {
   final _repo = ItemRepository();
   String _filter = '';
   bool _loading = true;
-  List<String> _values = [];
+  // (code, label) — label == code for departments, "code - name" for categories.
+  List<CategoryPair> _values = [];
 
   @override
   void initState() {
@@ -30,7 +31,13 @@ class _State extends ConsumerState<CatalogListScreen> {
   }
 
   Future<void> _load() async {
-    final v = await _repo.distinctForKind(widget.kind);
+    final List<CategoryPair> v;
+    if (widget.kind == 'DEPT') {
+      final depts = await _repo.distinctForKind('DEPT');
+      v = depts.map((d) => CategoryPair(d, d)).toList();
+    } else {
+      v = await _repo.distinctCategoryPairs(widget.kind);
+    }
     if (mounted) {
       setState(() {
         _values = v;
@@ -39,14 +46,14 @@ class _State extends ConsumerState<CatalogListScreen> {
     }
   }
 
-  String _destFor(String value) {
+  String _destFor(String code) {
     switch (widget.kind) {
       case 'DEPT':
-        return '${Routes.itemFilteredList}?dept=${Uri.encodeComponent(value)}';
+        return '${Routes.itemFilteredList}?dept=${Uri.encodeComponent(code)}';
       case 'CS':
-        return '${Routes.itemFilteredList}?catKind=CS&cat=${Uri.encodeComponent(value)}';
+        return '${Routes.itemFilteredList}?catKind=CS&cat=${Uri.encodeComponent(code)}';
       case 'NEILSON':
-        return '${Routes.itemFilteredList}?catKind=NEILSON&cat=${Uri.encodeComponent(value)}';
+        return '${Routes.itemFilteredList}?catKind=NEILSON&cat=${Uri.encodeComponent(code)}';
       default:
         return Routes.itemFilteredList;
     }
@@ -58,7 +65,7 @@ class _State extends ConsumerState<CatalogListScreen> {
     final q = _filter.trim().toLowerCase();
     final shown = q.isEmpty
         ? _values
-        : _values.where((v) => v.toLowerCase().contains(q)).toList();
+        : _values.where((v) => v.label.toLowerCase().contains(q)).toList();
 
     return Scaffold(
       appBar: orderAppBar(subtitle: widget.title, third: '${_values.length} total', height: 72),
@@ -93,10 +100,10 @@ class _State extends ConsumerState<CatalogListScreen> {
                         separatorBuilder: (_, _) =>
                             const Divider(height: 0.5, color: Color(0xFFEEEEEE)),
                         itemBuilder: (_, i) => ListTile(
-                          title: Text(shown[i],
+                          title: Text(shown[i].label,
                               style: const TextStyle(fontWeight: FontWeight.w600)),
                           trailing: const Icon(Icons.keyboard_arrow_right),
-                          onTap: () => context.push(_destFor(shown[i])),
+                          onTap: () => context.push(_destFor(shown[i].code)),
                         ),
                       ),
                     ),

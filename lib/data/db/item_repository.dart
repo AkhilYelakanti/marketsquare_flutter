@@ -1,6 +1,14 @@
 import 'app_database.dart';
 import 'item_file_db.dart';
 
+/// A category selection entry: [code] is the value filtered on, [label] is the
+/// "code - name" text shown in the list.
+class CategoryPair {
+  final String code;
+  final String label;
+  const CategoryPair(this.code, this.label);
+}
+
 /// Item catalog access (port of ItemCatalogRepository). Queries the dynamic
 /// `item_file_data` table populated by Data Sync, resolving the real column
 /// names from `refresh_metadata` at runtime.
@@ -98,6 +106,52 @@ class ItemRepository {
   static const _csCat = ['CS_CATEGORY', 'C_S_CATEGORY', 'CS_CAT'];
   static const _neilsonCat = ['NEILSON_CATEGORY', 'NIELSEN_CATEGORY', 'NEILSON_CAT'];
   static const _dealFlag = ['DEAL_FLAG', 'DEALS_FLAG', 'PROMO_FLAG', 'DEAL_INDICATOR'];
+  static const _csDesc = [
+    'CS_CATEGORY_DESCRIPTION', 'CS_CAT_DESC', 'CATEGORY_DESCRIPTION', 'CAT_DESCRIPTION'
+  ];
+  static const _neilsonName = [
+    'NEILSON_NAME', 'NIELSEN_NAME', 'NEILSON_CATEGORY_NAME', 'NEILSON_DESC', 'NIELSEN_DESC'
+  ];
+
+  /// Distinct category (code, label) pairs where label = "code - name" (native
+  /// `getDistinctCategoryPairs`). [kind] = 'CS' | 'NEILSON'. Falls back to the
+  /// bare code when no description column exists.
+  Future<List<CategoryPair>> distinctCategoryPairs(String kind) async {
+    final meta = await _itemDb.getMetadata();
+    if (meta == null) return [];
+    final codeCol = _resolve(meta.columns, kind == 'NEILSON' ? _neilsonCat : _csCat);
+    if (codeCol == null) return [];
+    var descCol = _resolve(meta.columns, kind == 'NEILSON' ? _neilsonName : _csDesc);
+    // Aggressive fallback for Neilson: any NEILSON_* column that isn't the code.
+    if (descCol == null && kind == 'NEILSON') {
+      for (final c in meta.columns) {
+        if (c.toUpperCase().contains('NEILSON') &&
+            c.toUpperCase() != codeCol.toUpperCase()) {
+          descCol = c;
+          break;
+        }
+      }
+    }
+    final db = await AppDatabase.instance.database;
+    final sel = descCol != null ? '"$codeCol" c, "$descCol" d' : '"$codeCol" c';
+    try {
+      final rows = await db.rawQuery(
+        'SELECT DISTINCT $sel FROM "${ItemFileDb.tableItem}" '
+        'WHERE "$codeCol" IS NOT NULL AND TRIM("$codeCol") != \'\' ORDER BY "$codeCol"',
+      );
+      final out = <CategoryPair>[];
+      final seen = <String>{};
+      for (final r in rows) {
+        final code = (r['c'] ?? '').toString().trim();
+        if (code.isEmpty || !seen.add(code)) continue;
+        final name = (r['d'] ?? '').toString().trim();
+        out.add(CategoryPair(code, name.isEmpty ? code : '$code - $name'));
+      }
+      return out;
+    } catch (_) {
+      return [];
+    }
+  }
 
   /// Resolved department column name, or null.
   Future<String?> deptColumn() async {
