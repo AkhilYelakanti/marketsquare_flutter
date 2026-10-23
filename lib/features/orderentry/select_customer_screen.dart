@@ -25,10 +25,17 @@ class _SelectCustomerScreenState extends ConsumerState<SelectCustomerScreen> {
   @override
   void initState() {
     super.initState();
-    // Delta inventory refresh on order-entry enter (native parity; non-blocking,
-    // quietly updates stock/cost against the current item table).
-    Future.microtask(() =>
-        ref.read(itemRefreshServiceProvider).runDeltaInventoryRefresh((_) {}));
+    // On order-entry enter (native parity): re-fetch the LOV1 config so the
+    // customer list / buttons / tiles are current even if the post-login sync
+    // missed it, then run a non-blocking delta inventory refresh.
+    Future.microtask(() async {
+      final svc = ref.read(itemRefreshServiceProvider);
+      final ok = await svc.refreshLov1();
+      if (ok && mounted) {
+        ref.read(orderEntryControllerProvider.notifier).loadConfig();
+      }
+      await svc.runDeltaInventoryRefresh((_) {});
+    });
   }
 
   @override

@@ -29,7 +29,11 @@ class DataSyncRepository {
         headers: {
           'Authorization': 'Bearer $token',
           'CSOR-Token': token,
-          'Accept': 'application/octet-stream',
+          // Binary downloads accept octet-stream; JSON/text endpoints (LOV1,
+          // inventory delta) must NOT send that or the server may 406.
+          'Accept': type == ResponseType.bytes
+              ? 'application/octet-stream'
+              : 'application/json',
         },
       );
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -111,6 +112,58 @@ class ItemRefreshService {
       }
 
       return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Fetches + saves the LOV1 order/dashboard config on demand (native re-fetches
+  /// it on order-entry enter). Returns true when a non-empty config was saved.
+  Future<bool> refreshLov1([void Function(String)? onProgress]) async {
+    try {
+      final storeId = session.getActiveStoreId();
+      final userId = session.getUserId();
+      if (storeId.isEmpty || userId == null) return false;
+      final lov1Url = session.getServiceUrl('ORDER_DEPT_TYPES-LOV1');
+      if (lov1Url == null || lov1Url.isEmpty) return false;
+
+      final serviceId = session.getServiceId();
+      final dev = await deviceId();
+      final ver = await versionId();
+
+      final tokenUrl = session.getServiceUrl('ACCESS_TOKEN');
+      String? token = session.getAuthToken();
+      if (tokenUrl != null && serviceId != null) {
+        final t = await login.getAuthToken(
+          tokenUrl: tokenUrl,
+          serviceId: serviceId,
+          deviceId: dev,
+          accessId: userId,
+          versionId: ver,
+        );
+        if (t.isSuccess) {
+          token = t.value!.accessToken;
+          await session.saveAuthToken(token);
+        }
+      }
+      if (token == null || token.isEmpty) return false;
+
+      onProgress?.call('Loading order configuration...');
+      final lov1 = await repo.postText(lov1Url, token, {
+        'deviceId': dev,
+        'storeId': storeId,
+        'userName': userId,
+        'versionId': ver,
+      });
+      if (lov1.isSuccess && (lov1.value ?? '').trim().isNotEmpty) {
+        await session.saveLov1ConfigJson(lov1.value!);
+        debugPrint('LOV1: saved ${lov1.value!.length} chars');
+        return true;
+      }
+      debugPrint(
+          'LOV1 fetch failed: success=${lov1.isSuccess} err=${lov1.error} '
+          'len=${(lov1.value ?? '').length} url=$lov1Url');
+      return false;
     } catch (_) {
       return false;
     }
