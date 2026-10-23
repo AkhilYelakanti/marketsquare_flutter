@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/models/order_models.dart';
 import '../../router/app_routes.dart';
+import '../datasync/item_refresh_service.dart';
 import 'order_entry_controller.dart';
 import 'order_widgets.dart';
 
@@ -20,6 +21,15 @@ class SelectCustomerScreen extends ConsumerStatefulWidget {
 
 class _SelectCustomerScreenState extends ConsumerState<SelectCustomerScreen> {
   String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Delta inventory refresh on order-entry enter (native parity; non-blocking,
+    // quietly updates stock/cost against the current item table).
+    Future.microtask(() =>
+        ref.read(itemRefreshServiceProvider).runDeltaInventoryRefresh((_) {}));
+  }
 
   @override
   Widget build(BuildContext context) {

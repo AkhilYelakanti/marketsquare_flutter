@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/session/session_providers.dart';
 import '../../router/app_routes.dart';
 import '../orderentry/order_widgets.dart';
 
@@ -11,25 +13,32 @@ class _Opt {
   const _Opt(this.title, this.icon, this.route);
 }
 
-/// Port of native `ReviewOrdersScreen` landing menu. (Approval/invoice options
-/// are gated by LOV1 flags in native; shown here while those flags default off.)
-class ReviewOrdersScreen extends StatelessWidget {
+/// Port of native `ReviewOrdersScreen` landing menu. View Device Orders and
+/// View All Previous Store Orders always show; Order Approval / View Invoices /
+/// View Invoices-PDF are gated by LOV1 flags (orderApprovalView,
+/// enableViewInvoice, displayInvoicePDF).
+class ReviewOrdersScreen extends ConsumerWidget {
   const ReviewOrdersScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final primary = Theme.of(context).colorScheme.primary;
-    const options = [
-      _Opt('View Device Orders', Icons.assignment, Routes.viewDeviceOrders),
-      _Opt('View All Previous Store Orders', Icons.assignment_late,
+    final sm = ref.watch(sessionManagerProvider);
+
+    final options = <_Opt>[
+      const _Opt('View Device Orders', Icons.assignment, Routes.viewDeviceOrders),
+      const _Opt('View All Previous Store Orders', Icons.assignment_late,
           Routes.viewStoreOrdersSelect),
-      _Opt('Order Approval', Icons.thumb_up, Routes.orderApproval),
-      _Opt('View Invoices', Icons.description, Routes.invoiceList),
-      _Opt('View Invoices - PDF', Icons.picture_as_pdf, Routes.invoicePdfList),
+      if (sm.isOrderApprovalEnabled())
+        const _Opt('Order Approval', Icons.thumb_up, Routes.orderApproval),
+      if (sm.isViewInvoiceEnabled())
+        const _Opt('View Invoices', Icons.description, Routes.invoiceList),
+      if (sm.isInvoicePdfEnabled())
+        const _Opt('View Invoices - PDF', Icons.picture_as_pdf, Routes.invoicePdfList),
     ];
 
     return Scaffold(
-      appBar: orderAppBar(subtitle: 'REVIEW ORDERS', height: 64),
+      appBar: orderAppBar(subtitle: 'REVIEW ORDERS', height: 70),
       bottomNavigationBar: OrderBottomBar(onBack: () => context.pop()),
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -54,21 +63,23 @@ class _OptCard extends StatelessWidget {
       child: InkWell(
         onTap: () => context.push(opt.route),
         child: SizedBox(
-          height: 104,
+          height: 108,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 58,
-                height: 58,
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: primary, width: 3),
                 ),
-                child: Icon(opt.icon, color: primary, size: 30),
+                alignment: Alignment.center,
+                child: Icon(opt.icon, color: primary, size: 32),
               ),
               const SizedBox(height: 6),
               Text(opt.title,
+                  textAlign: TextAlign.center,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             ],
           ),

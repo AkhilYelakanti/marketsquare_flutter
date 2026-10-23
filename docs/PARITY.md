@@ -11,8 +11,8 @@ parity, **P3** = polish. Status: ☐ todo · ◐ partial · ☑ done.
 
 ## Data sync / refresh
 - ☑ Fetch + save `ORDER_DEPT_TYPES-LOV1` (customers, tiles, buttons, fields)
-- ☐ **P1** Full inventory step `ITEMS_INVENTORY-ITEM2` (merge into item table)
-- ☐ **P1** Delta inventory refresh `ITEMS_INVENTORY-DELTA` (`runDeltaInventoryRefresh`) — run on order-entry enter
+- ☑ Full inventory step `ITEMS_INVENTORY-ITEM2` (merge onto item table by ITEM_ID/DEPT_NAME) — needs backend verification
+- ☑ Delta inventory refresh `ITEMS_INVENTORY-DELTA` (`runDeltaInventoryRefresh`), runs on order-entry enter — needs backend verification
 - ☐ **P1** Promo item file `PROMO_ITEM_FILE` → Refresh Data "AD PROMO ITEM FILE" block
 - ☐ **P2** Welcome messages `WELCOME_MESSAGES-WELCOME`
 - ☐ **P2** Image download service → Refresh Data "IMAGES IN STORE" count + Search Images
@@ -33,19 +33,20 @@ parity, **P3** = polish. Status: ☐ todo · ◐ partial · ☑ done.
 - ☑ Customer list, order types, form fields, control buttons populate from LOV1
 
 ## Item catalog
-- ◐ Menu screen — rename to native (SEARCH ALL, BY DEPARTMENT, BY C&S CATEGORY, BY NEILSON CATEGORY, SEARCH DEALS, SEARCH IMAGES), centered circle-icon cards
+- ☑ Menu screen — native labels (SEARCH ALL, BY DEPARTMENT, BY C&S CATEGORY, BY NEILSON CATEGORY, SEARCH DEALS, SEARCH IMAGES), centered circle-icon cards
 - ☐ **P1** Catalog item list uses rich tiles (default tileConfiguration)
 - ☐ **P2** Search Deals form (DEPARTMENT / CATEGORY / AD PLAN / "deals effective next billing date" toggle / SUBMIT)
 - ☐ **P2** Search Images screen
 
 ## Review orders
-- ☐ **P1** Conditional option visibility by LOV flags — View Invoices / View Invoices-PDF / Order Approval gated; View Device Orders + View All Previous Store Orders always (currently all 5 always shown)
+- ☑ Conditional option visibility by LOV flags — `orderApprovalView` / `enableViewInvoice` / `displayInvoicePDF`; View Device Orders + View All Previous Store Orders always
 - ◐ **P2** Order Approval list parity — checkboxes, Dept/Date/Conf#/Items/Cases/Est$ columns, DELETE SELECTED + confirm dialog, "retrieving details" overlay, approve confirm dialog (verify vs native)
 - ◐ Invoices list / detail / PDF (exist; verify + gate)
 
 ## Help
-- ☐ **P2** Help layout: version, EMAIL / CALL cards, OPERATIONAL GUIDE, SCAN DEBUGGING, DEBUG
-- ☐ **P2** Operational Guide (PDF viewer)
+- ☑ Help layout: version, EMAIL / CALL cards, OPERATIONAL GUIDE, SCAN DEBUGGING, DEBUG
+- ◐ **P2** Operational Guide (PDF viewer) — tile wired; verify renderer
+- ☐ **P3** Make EMAIL / CALL cards launch mailto: / tel: (needs url_launcher)
 
 ## Polish
 - ◐ Connectivity indicator live wiring (green/red by real connectivity)

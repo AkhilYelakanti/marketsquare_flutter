@@ -81,22 +81,86 @@ class ItemRefreshService {
         'versionId': ver,
       };
 
+      // Item file (full replace of the item table).
       final url = session.getServiceUrl('ITEMS_REFRESH-ITEM1');
       if (url == null || url.isEmpty) {
         onProgress('Item data endpoint not configured — skipped.');
-        return true; // fail-soft (native skips missing URLs)
+      } else {
+        onProgress('Retrieving Item Data...');
+        final res = await repo.getItemsRefresh(url, token, request);
+        if (res.isSuccess) {
+          onProgress('Refreshing Item Data...');
+          final count = await itemDb.ingestBytes(res.value!.bytes);
+          final name = res.value!.fileName.isNotEmpty
+              ? res.value!.fileName
+              : 'item_refresh_$storeId';
+          await session.saveRefreshData(name, _now(), '$count');
+        }
       }
 
-      onProgress('Retrieving Item Data...');
-      final res = await repo.getItemsRefresh(url, token, request);
-      if (!res.isSuccess) return true; // fail-soft, keep existing data
+      // Full inventory file (ITEMS_INVENTORY-ITEM2) — merged onto the item table
+      // by (ITEM_ID, DEPT_NAME); native parity.
+      final invUrl = session.getServiceUrl('ITEMS_INVENTORY-ITEM2');
+      if (invUrl != null && invUrl.isNotEmpty) {
+        onProgress('Retrieving Inventory Data...');
+        final invRes = await repo.getItemsRefresh(invUrl, token, request);
+        if (invRes.isSuccess) {
+          onProgress('Refreshing Inventory Data...');
+          await itemDb.ingestInventoryMergeBytes(invRes.value!.bytes);
+        }
+      }
 
-      onProgress('Refreshing Item Data...');
-      final count = await itemDb.ingestBytes(res.value!.bytes);
-      final name = res.value!.fileName.isNotEmpty
-          ? res.value!.fileName
-          : 'item_refresh_$storeId';
-      await session.saveRefreshData(name, _now(), '$count');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Delta inventory refresh (ITEMS_INVENTORY-DELTA): fetches only inventory
+  /// changes since the last sync and merges them onto the item table. Called on
+  /// order-entry enter. No-op (returns true) when the endpoint isn't configured.
+  /// Port of `ItemRefreshService.runDeltaInventoryRefresh`.
+  Future<bool> runDeltaInventoryRefresh(void Function(String) onProgress) async {
+    try {
+      final storeId = session.getActiveStoreId();
+      final userId = session.getUserId();
+      if (storeId.isEmpty || userId == null) return true;
+
+      final deltaUrl = session.getServiceUrl('ITEMS_INVENTORY-DELTA');
+      if (deltaUrl == null || deltaUrl.isEmpty) return true;
+
+      final serviceId = session.getServiceId();
+      final dev = await deviceId();
+      final ver = await versionId();
+
+      onProgress('Authenticating...');
+      final tokenUrl = session.getServiceUrl('ACCESS_TOKEN');
+      String? token = session.getAuthToken();
+      if (tokenUrl != null && serviceId != null) {
+        final t = await login.getAuthToken(
+          tokenUrl: tokenUrl,
+          serviceId: serviceId,
+          deviceId: dev,
+          accessId: userId,
+          versionId: ver,
+        );
+        if (t.isSuccess) {
+          token = t.value!.accessToken;
+          await session.saveAuthToken(token);
+        }
+      }
+      if (token == null || token.isEmpty) return false;
+
+      onProgress('Refreshing Inventory Data...');
+      final itemUserName = session.isRepAccount() ? userId : storeId;
+      final res = await repo.postText(deltaUrl, token, {
+        'deviceId': dev,
+        'storeId': storeId,
+        'userName': itemUserName,
+        'versionId': ver,
+      });
+      if (!res.isSuccess) return false;
+      await itemDb.ingestInventoryMerge(res.value!);
       return true;
     } catch (_) {
       return false;

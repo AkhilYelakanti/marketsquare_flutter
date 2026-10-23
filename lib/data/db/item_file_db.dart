@@ -100,6 +100,84 @@ class ItemFileDb {
     return count;
   }
 
+  /// Merges an inventory or delta-inventory file into the existing item table,
+  /// updating rows matched on (ITEM_ID, DEPT_NAME) → (itemCol, deptCol) and
+  /// adding any inventory columns not already present. Port of
+  /// ItemDatabaseHelper.importInventoryDirectly. Returns rows updated.
+  /// (No-op if the item file hasn't been ingested yet.)
+  Future<int> ingestInventoryMerge(String content) async {
+    final meta = await getMetadata();
+    if (meta == null || meta.itemColName.isEmpty || meta.deptColName.isEmpty) {
+      return 0;
+    }
+    final lines = const LineSplitter()
+        .convert(content)
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
+    if (lines.isEmpty) return 0;
+
+    final delimiter = _detectDelimiter(lines.first);
+    final headers = _splitLine(lines.first, delimiter);
+    final itemIdIdx = headers.indexWhere((h) => h.toUpperCase() == 'ITEM_ID');
+    final deptNameIdx = headers.indexWhere((h) => h.toUpperCase() == 'DEPT_NAME');
+    if (itemIdIdx < 0 || deptNameIdx < 0) return 0;
+
+    final updateCols = <({int idx, String name})>[];
+    for (var i = 0; i < headers.length; i++) {
+      if (i == itemIdIdx || i == deptNameIdx) continue;
+      updateCols.add((idx: i, name: _sanitize(headers[i])));
+    }
+    if (updateCols.isEmpty) return 0;
+
+    final db = await AppDatabase.instance.database;
+
+    // Add any inventory columns not yet present in the item table.
+    final existing = (await db.rawQuery('PRAGMA table_info("$tableItem")'))
+        .map((r) => (r['name'] ?? '').toString())
+        .toSet();
+    for (final c in updateCols) {
+      if (!existing.contains(c.name)) {
+        await db.execute('ALTER TABLE "$tableItem" ADD COLUMN "${c.name}" TEXT');
+      }
+    }
+
+    final safeItem = meta.itemColName; // metadata stores sanitized names
+    final safeDept = meta.deptColName;
+    final setClause = updateCols.map((c) => '"${c.name}" = ?').join(', ');
+    final sql =
+        'UPDATE "$tableItem" SET $setClause WHERE "$safeItem" = ? AND "$safeDept" = ?';
+
+    var updated = 0;
+    for (var start = 1; start < lines.length; start += _batchSize) {
+      final end = (start + _batchSize).clamp(0, lines.length);
+      final batch = db.batch();
+      for (var i = start; i < end; i++) {
+        final fields = _splitLine(lines[i], delimiter);
+        if (fields.length != headers.length) continue;
+        final itemId = fields[itemIdIdx];
+        final deptName = fields[deptNameIdx];
+        if (itemId.isEmpty || deptName.isEmpty) continue;
+        final args = <Object?>[
+          for (final c in updateCols) c.idx < fields.length ? fields[c.idx] : '',
+          itemId,
+          deptName,
+        ];
+        batch.rawUpdate(sql, args);
+        updated++;
+      }
+      await batch.commit(noResult: true);
+    }
+    return updated;
+  }
+
+  /// Inventory merge from raw bytes (unzips a ZIP payload first).
+  Future<int> ingestInventoryMergeBytes(List<int> bytes) async {
+    final text = _isZip(bytes)
+        ? _unzipFirstEntry(bytes)
+        : utf8.decode(bytes, allowMalformed: true);
+    return ingestInventoryMerge(text);
+  }
+
   Future<ItemFileMetadata?> getMetadata() async {
     final db = await AppDatabase.instance.database;
     final rows = await db.query('refresh_metadata',

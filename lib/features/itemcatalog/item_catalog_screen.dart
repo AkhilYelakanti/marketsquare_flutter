@@ -4,13 +4,22 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/db/item_repository.dart';
 import '../../router/app_routes.dart';
+import '../orderentry/order_widgets.dart';
 
 final _catalogMetaProvider = FutureProvider.autoDispose((ref) async {
   return ItemRepository().metadata();
 });
 
-/// Port of native `ItemCatalogScreen` landing: search entry + record count.
-/// (Department/category/deals/images/saved sub-screens remain placeholders.)
+class _Opt {
+  final String title;
+  final IconData icon;
+  final String route;
+  const _Opt(this.title, this.icon, this.route);
+}
+
+/// Port of native `ItemCatalogScreen` landing menu: SEARCH ALL / BY DEPARTMENT /
+/// BY C&S CATEGORY / BY NEILSON CATEGORY / SEARCH DEALS / SEARCH IMAGES, as
+/// full-width grey cards with centered brand circle icons.
 class ItemCatalogScreen extends ConsumerWidget {
   const ItemCatalogScreen({super.key});
 
@@ -19,97 +28,75 @@ class ItemCatalogScreen extends ConsumerWidget {
     final primary = Theme.of(context).colorScheme.primary;
     final meta = ref.watch(_catalogMetaProvider);
 
+    const options = [
+      _Opt('SEARCH ALL', Icons.search, Routes.itemSearch),
+      _Opt('BY DEPARTMENT', Icons.list, Routes.itemDeptList),
+      _Opt('BY C&S CATEGORY', Icons.list, Routes.itemCsCatList),
+      _Opt('BY NEILSON CATEGORY', Icons.list, Routes.itemNeilsonCatList),
+      _Opt('SEARCH DEALS', Icons.attach_money, Routes.searchDeals),
+      _Opt('SEARCH IMAGES', Icons.image, Routes.itemImages),
+    ];
+
     return Scaffold(
-      appBar: AppBar(title: const Text('ITEM CATALOG')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            meta.when(
-              data: (m) => Text(
-                m != null && m.recordCount > 0
-                    ? '${m.recordCount} items · last updated ${m.lastUpdated}'
-                    : 'No catalog loaded. Use Refresh Data to sync (or load the sample catalog).',
-                style: const TextStyle(color: Colors.black54),
-              ),
-              loading: () => const Text('…'),
-              error: (_, _) => const Text('No catalog loaded.'),
-            ),
-            const SizedBox(height: 16),
-            _CatalogTile(
-              icon: Icons.search,
-              label: 'SEARCH ALL ITEMS',
-              primary: primary,
-              onTap: () => context.push(Routes.itemSearch),
-            ),
+      appBar: orderAppBar(subtitle: 'ITEM CATALOG', height: 64),
+      bottomNavigationBar: OrderBottomBar(onBack: () => context.pop()),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        children: [
+          for (final o in options) ...[
+            _OptCard(opt: o, primary: primary),
             const SizedBox(height: 10),
-            _CatalogTile(
-              icon: Icons.category,
-              label: 'DEPARTMENTS',
-              primary: primary,
-              onTap: () => context.push(Routes.itemDeptList),
-            ),
-            const SizedBox(height: 10),
-            _CatalogTile(
-              icon: Icons.category_outlined,
-              label: 'CS CATEGORIES',
-              primary: primary,
-              onTap: () => context.push(Routes.itemCsCatList),
-            ),
-            const SizedBox(height: 10),
-            _CatalogTile(
-              icon: Icons.category_outlined,
-              label: 'NEILSON CATEGORIES',
-              primary: primary,
-              onTap: () => context.push(Routes.itemNeilsonCatList),
-            ),
-            const SizedBox(height: 10),
-            _CatalogTile(
-              icon: Icons.local_offer,
-              label: 'SEARCH DEALS',
-              primary: primary,
-              onTap: () => context.push(Routes.searchDeals),
-            ),
-            const SizedBox(height: 10),
-            _CatalogTile(
-              icon: Icons.bookmark,
-              label: 'SAVED ITEMS',
-              primary: primary,
-              onTap: () => context.push(Routes.manageSavedItems),
-            ),
           ],
-        ),
+          meta.maybeWhen(
+            data: (m) => Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                m != null && m.recordCount > 0
+                    ? '${m.recordCount} items · updated ${m.lastUpdated}'
+                    : 'No catalog loaded — use Refresh Data to sync.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black45, fontSize: 12),
+              ),
+            ),
+            orElse: () => const SizedBox.shrink(),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _CatalogTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
+class _OptCard extends StatelessWidget {
+  final _Opt opt;
   final Color primary;
-  final VoidCallback onTap;
-  const _CatalogTile(
-      {required this.icon,
-      required this.label,
-      required this.primary,
-      required this.onTap});
+  const _OptCard({required this.opt, required this.primary});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       color: const Color(0xFFE0E0E0),
+      shape: const RoundedRectangleBorder(),
       child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-          child: Row(
+        onTap: () => context.push(opt.route),
+        child: SizedBox(
+          height: 96,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: primary, size: 32),
-              const SizedBox(width: 16),
-              Text(label,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: primary, width: 3),
+                ),
+                alignment: Alignment.center,
+                child: Icon(opt.icon, color: primary, size: 30),
+              ),
+              const SizedBox(height: 6),
+              Text(opt.title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             ],
           ),
         ),

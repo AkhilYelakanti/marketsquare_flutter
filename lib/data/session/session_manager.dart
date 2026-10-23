@@ -169,6 +169,19 @@ class SessionManager {
   List<String> getMessagesSubjects() => _lov1List('messagesSubject');
   List<String> getStoreInvoices() => _lov1List('storeInvoices');
 
+  // ── Review Orders option gating (LOV1 Y/N flags, native parity) ───────────────
+  bool _lov1Flag(String key) =>
+      _lov1String(key).toUpperCase() == 'Y';
+
+  /// `orderApprovalView` == Y → show the Order Approval option.
+  bool isOrderApprovalEnabled() => _lov1Flag('orderApprovalView');
+
+  /// `enableViewInvoice` == Y → show View Invoices.
+  bool isViewInvoiceEnabled() => _lov1Flag('enableViewInvoice');
+
+  /// `displayInvoicePDF` == Y → show View Invoices - PDF.
+  bool isInvoicePdfEnabled() => _lov1Flag('displayInvoicePDF');
+
   // ── Rep customer list (Change Store) ──────────────────────────────────────────
   /// Customers a rep can switch between — LOV1 `storeNumbers` (or `customerList`).
   /// Entries are either `"ID-Name"` / `"ID"` strings or `{storeId, storeName}`
@@ -229,7 +242,9 @@ class SessionManager {
   // ── Help / support (LOV1-driven; defaults empty) ──────────────────────────────
   String getSupportEmail() {
     final e = _lov1String('email');
-    return e.isNotEmpty ? e : (_prefs.getString('SUPPORT_EMAIL') ?? '');
+    if (e.isNotEmpty) return e;
+    final pref = _prefs.getString('SUPPORT_EMAIL') ?? '';
+    return pref.isNotEmpty ? pref : 'retailservices.helpdesk@cswg.com';
   }
 
   String getSupportPhone() {
