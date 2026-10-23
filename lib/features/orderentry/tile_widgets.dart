@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/html_text.dart';
 import 'alert_pipeline.dart';
 import 'field_resolver.dart';
 import 'order_entry_controller.dart';
@@ -17,6 +18,7 @@ class ItemTileCard extends StatelessWidget {
   final OrderTileConfig? config;
   final String qty;
   final ValueChanged<String>? onQty;
+  final VoidCallback? onDelete;
   final VoidCallback? onTap;
   final String? watermark;
   final String? backgroundHex;
@@ -27,6 +29,7 @@ class ItemTileCard extends StatelessWidget {
     this.config,
     this.qty = '0',
     this.onQty,
+    this.onDelete,
     this.onTap,
     this.watermark,
     this.backgroundHex,
@@ -171,11 +174,16 @@ class ItemTileCard extends StatelessWidget {
           if (e.isImage) {
             content = _imageCell();
           } else if (e.isQtyEntry) {
-            content = _qtyBox(primary);
+            content = _qtyEntry(primary);
           } else {
-            final v = e.isCalculated
-                ? evaluateTileFormula(e.attributeMath, item, qty, resolveItemField)
-                : resolveItemField(e.attributeValue, item);
+            String v;
+            if (e.isCalculated) {
+              v = evaluateTileFormula(e.attributeMath, item, qty, resolveItemField);
+            } else {
+              v = resolveItemField(e.attributeValue, item);
+              // HTML-typed item fields hold markup (e.g. "<p>&nbsp;…") — strip to text.
+              if (e.valueType.toUpperCase() == 'HTML') v = stripHtml(v);
+            }
             content = _gridText(v, Color(e.valueColor),
                 e.valueFontSize.toDouble().clamp(9.0, 15.0), e.valueBold);
           }
@@ -217,28 +225,59 @@ class ItemTileCard extends StatelessWidget {
         ),
       );
 
-  /// Qty box (native parity): tap = +1, long-press = −1.
-  Widget _qtyBox(Color primary) {
+  /// Qty entry (native parity): [+] on top, the number in a white box, and a
+  /// red [−] at the bottom. [−] at qty ≤ 1 deletes the line.
+  Widget _qtyEntry(Color primary) {
     final n = int.tryParse(qty) ?? 0;
+    Widget circle(String label, Color color, VoidCallback? onTap) => InkWell(
+          onTap: onTap,
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Text(label,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+          ),
+        );
     return Padding(
-      padding: const EdgeInsets.all(3),
-      child: InkWell(
-        onTap: onQty == null ? null : () => onQty!('${n + 1}'),
-        onLongPress:
-            onQty == null ? null : () => onQty!('${n - 1 < 0 ? 0 : n - 1}'),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.black38),
-            borderRadius: BorderRadius.circular(2),
-          ),
-          alignment: Alignment.center,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text('$n',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
+      padding: const EdgeInsets.all(2),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F4FF),
+          border: Border.all(color: const Color(0xFFB0BEC5), width: 0.5),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            circle('+', primary, onQty == null ? null : () => onQty!('${n + 1}')),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: primary),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              alignment: Alignment.center,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('$n',
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            circle('−', const Color(0xFFC62828), () {
+              if (n <= 1) {
+                onDelete?.call();
+              } else {
+                onQty?.call('${n - 1}');
+              }
+            }),
+          ],
         ),
       ),
     );
@@ -263,6 +302,7 @@ class OrderItemTile extends ConsumerWidget {
       watermark: line?.alertWatermarkText,
       backgroundHex: line?.alertBackgroundHex,
       onQty: (v) => ctrl.commitItem(item, v),
+      onDelete: () => ctrl.removeLine(item),
     );
   }
 }

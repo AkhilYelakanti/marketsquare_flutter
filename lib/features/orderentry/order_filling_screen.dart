@@ -418,13 +418,10 @@ class _BottomControlsState extends State<_BottomControls> {
     const baseKeys = {'BACK', 'SEARCH', 'SEND'};
     final extras =
         widget.extra.where((b) => !baseKeys.contains(b.key.toUpperCase())).toList();
-    final buttons = <Widget>[
-      _btn(Icons.arrow_back, 'BACK', widget.onBack),
-      _btn(Icons.search, 'SEARCH', widget.onSearch),
+    final extraBtns = [
       for (final b in extras)
         _btn(_BottomControls._iconFor(b), b.label.toUpperCase(),
             () => widget.onControl(b)),
-      _btn(Icons.send, 'SEND', widget.onSend),
     ];
     final hasOverflow = extras.isNotEmpty;
 
@@ -434,29 +431,38 @@ class _BottomControlsState extends State<_BottomControls> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 3-dot handle: expand to two rows / collapse to one scrollable row.
+          // 3-dot handle: expand the middle buttons to two rows / collapse.
           if (hasOverflow)
             InkWell(
               onTap: () => setState(() => _expanded = !_expanded),
-              child: SizedBox(
-                height: 22,
-                child: Icon(_expanded ? Icons.more_horiz : Icons.more_horiz,
-                    color: Colors.white70, size: 22),
-              ),
+              child: const SizedBox(
+                  height: 22,
+                  child: Icon(Icons.more_horiz, color: Colors.white70, size: 22)),
             )
           else
             const SizedBox(height: 6),
-          _expanded
-              ? Wrap(
-                  alignment: WrapAlignment.center,
-                  runSpacing: 4,
-                  children: buttons,
-                )
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: buttons),
-                ),
+          // BACK + SEARCH fixed left, SEND fixed right; middle buttons
+          // scroll (collapsed) or wrap to two rows (expanded).
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _btn(Icons.arrow_back, 'BACK', widget.onBack),
+              _btn(Icons.search, 'SEARCH', widget.onSearch),
+              Expanded(
+                child: _expanded
+                    ? Wrap(
+                        alignment: WrapAlignment.center,
+                        runSpacing: 4,
+                        children: extraBtns,
+                      )
+                    : SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(mainAxisSize: MainAxisSize.min, children: extraBtns),
+                      ),
+              ),
+              _btn(Icons.send, 'SEND', widget.onSend),
+            ],
+          ),
         ],
       ),
     );
