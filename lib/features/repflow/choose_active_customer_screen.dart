@@ -9,6 +9,7 @@ import '../../router/app_routes.dart';
 import '../../widgets/brand_logo.dart';
 import '../../widgets/network_status_action.dart';
 import '../datasync/item_refresh_service.dart';
+import '../orderentry/order_widgets.dart';
 
 /// Port of native `ChooseActiveCustomerScreen` (rep "Change Store"): a
 /// searchable list of the rep's customers (from LOV1 `storeNumbers`). Selecting
@@ -83,6 +84,15 @@ class _State extends ConsumerState<ChooseActiveCustomerScreen> {
           ],
         ),
         actions: const [NetworkStatusAction()],
+      ),
+      // BACK: to the dashboard if a store is already active (reached from Change
+      // Store), otherwise back to login (switch user) — never trap the user here.
+      bottomNavigationBar: OrderBottomBar(
+        onBack: () {
+          final hasStore =
+              ref.read(sessionManagerProvider).getRepSelectedStoreId() != null;
+          context.go(hasStore ? Routes.dashboard : Routes.login);
+        },
       ),
       body: Stack(
         children: [
