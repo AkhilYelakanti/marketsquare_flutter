@@ -33,6 +33,15 @@ class _State extends ConsumerState<SendOrdersScreen> {
     }
   }
 
+  /// True when the selected order originated from an approval (has a
+  /// confirmation number) — shows APPROVED SEND SELECTED like native.
+  bool _selectedIsApproval(SendOrdersState st) {
+    if (st.selectedIds.isEmpty) return false;
+    final id = st.firstSelectedId;
+    final o = st.orders.where((e) => e.id == id);
+    return o.isNotEmpty && o.first.confirmationNumber.trim().isNotEmpty;
+  }
+
   Future<void> _send(int id) async {
     final ctrl = ref.read(sendOrdersControllerProvider.notifier);
     if (id == -1) return;
@@ -105,6 +114,7 @@ class _State extends ConsumerState<SendOrdersScreen> {
               ),
               _BottomBar(
                 enabled: st.hasSelectedUnsent && st.inflight == SendInflight.idle,
+                approved: _selectedIsApproval(st),
                 onBack: () => context.pop(),
                 onSend: () => _send(st.firstSelectedId),
               ),
@@ -260,10 +270,14 @@ class _OrderCard extends StatelessWidget {
 
 class _BottomBar extends StatelessWidget {
   final bool enabled;
+  final bool approved;
   final VoidCallback onBack;
   final VoidCallback onSend;
   const _BottomBar(
-      {required this.enabled, required this.onBack, required this.onSend});
+      {required this.enabled,
+      this.approved = false,
+      required this.onBack,
+      required this.onSend});
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +309,8 @@ class _BottomBar extends StatelessWidget {
           InkWell(
             onTap: enabled ? onSend : null,
             child: Row(children: [
-              Text('SEND SELECTED',
+              Text(approved ? 'APPROVED\nSEND SELECTED' : 'SEND SELECTED',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                       color: fade, fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(width: 10),
