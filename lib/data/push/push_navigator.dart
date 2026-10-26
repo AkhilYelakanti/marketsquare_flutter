@@ -44,15 +44,11 @@ class PushNavigator extends Notifier<String?> {
       case 'HOME':
         return homeRoute;
       case 'ORDER_APPROVALS':
-        final confirmId = data['confirmId']?.toString();
+        // Always open the Orders Waiting for Approval list (the approver reviews
+        // and taps the order there). `confirmId` in the payload is informational.
         final mode = data['mode']?.toString();
-        if (confirmId != null && confirmId.isNotEmpty) {
-          return '${Routes.approvalOrderDetail}?confirmId=$confirmId';
-        }
-        if (mode != null && mode.isNotEmpty) {
-          return '${Routes.approvalsList}?mode=$mode';
-        }
-        return Routes.orderApproval;
+        final m = (mode != null && mode.isNotEmpty) ? mode : 'WAITING';
+        return '${Routes.approvalsList}?mode=$m';
       case 'REFRESH_DATA':
         return Routes.refreshData;
       case 'REVIEW_ORDERS':
