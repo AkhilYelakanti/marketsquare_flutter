@@ -79,7 +79,14 @@ class SendOrdersController extends Notifier<SendOrdersState> {
   }
 
   Future<void> loadOrders({int autoSelectId = -1}) async {
-    final loaded = await _dao.getUnsent();
+    var loaded = await _dao.getUnsent();
+    // Native parity: entering Send Orders from an approval shows ONLY that order.
+    if (autoSelectId != -1) {
+      final target = loaded.where((o) => o.id == autoSelectId);
+      if (target.isNotEmpty && target.first.confirmationNumber.trim().isNotEmpty) {
+        loaded = [target.first];
+      }
+    }
     final sel = (autoSelectId != -1 && loaded.any((o) => o.id == autoSelectId))
         ? {autoSelectId}
         : <int>{};

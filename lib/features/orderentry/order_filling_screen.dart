@@ -46,6 +46,7 @@ class OrderFillingScreen extends ConsumerWidget {
             onSend: () => _send(context, ref),
             extra: st.controlButtonsForCurrentType,
             onControl: (b) => _handleControl(context, ref, b),
+            approvalMode: st.approvalConfirmation.isNotEmpty,
           ),
         ],
       ),
@@ -371,12 +372,15 @@ class _BottomControls extends StatefulWidget {
   final VoidCallback onSend;
   final List<OrderControlButton> extra;
   final void Function(OrderControlButton) onControl;
+  /// Order-Approval review mode: the toolbar shows only BACK + APPROVE.
+  final bool approvalMode;
   const _BottomControls({
     required this.onBack,
     required this.onSearch,
     required this.onSend,
     required this.extra,
     required this.onControl,
+    this.approvalMode = false,
   });
 
   @override
@@ -501,7 +505,10 @@ class _BottomControlsState extends State<_BottomControls> {
                         child: Row(mainAxisSize: MainAxisSize.min, children: extraBtns),
                       ),
               ),
-              _btn(Icons.send, 'SEND', widget.onSend),
+              // Approval review mode: the fixed SEND button becomes APPROVE.
+              widget.approvalMode
+                  ? _btn(Icons.thumb_up, 'APPROVE', widget.onSend)
+                  : _btn(Icons.send, 'SEND', widget.onSend),
             ],
           ),
         ],
