@@ -110,7 +110,10 @@ class _State extends ConsumerState<ApprovalsListScreen> {
     return Scaffold(
       appBar: orderAppBar(subtitle: 'ORDERS FOR APPROVAL', height: 64),
       bottomNavigationBar: OrderBottomBar(
-        onBack: () => context.pop(),
+        // Reached via push deep-link (go, not push) → nothing to pop; fall back
+        // to the dashboard so BACK always works.
+        onBack: () =>
+            context.canPop() ? context.pop() : context.go(Routes.dashboard),
         acceptLabel: _waiting && st.selectedIds.isNotEmpty ? 'DELETE\nSELECTED' : null,
         onAccept: _waiting && st.selectedIds.isNotEmpty ? _delete : null,
       ),
