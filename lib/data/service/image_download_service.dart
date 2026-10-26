@@ -49,6 +49,7 @@ class ImageDownloadService {
 
   Future<ImageDownloadResult> executeDownload(
       void Function(String) onProgress) async {
+    final temps = <File>[];
     try {
       await ImageStore.init();
       final dir = ImageStore.dir!;
@@ -60,7 +61,7 @@ class ImageDownloadService {
       final dev = await deviceId();
       final ver = await versionId();
 
-      onProgress('Authenticating...');
+      // Auth token — silent background step (never surfaced in the popup).
       final tokenUrl = session.getServiceUrl('ACCESS_TOKEN');
       final serviceId = session.getServiceId();
       String? token = session.getAuthToken();
@@ -78,7 +79,27 @@ class ImageDownloadService {
         }
       }
       if (token == null || token.isEmpty) {
-        return const ImageDownloadResult(false, 0, 'Could not authenticate.');
+        return const ImageDownloadResult(false, 0, 'Could not start download.');
+      }
+
+      // ── 1) Refresh the LOV first so packages/config are current ─────────────
+      onProgress('Refreshing configuration...');
+      final lovUrl = session.getServiceUrl('ORDER_DEPT_TYPES-LOV1');
+      if (lovUrl != null && lovUrl.isNotEmpty) {
+        final res = await repo.postText(lovUrl, token, {
+          'deviceId': dev,
+          'storeId': storeId,
+          'userName': userId,
+          'versionId': ver,
+        });
+        if (res.isSuccess && (res.value ?? '').trim().isNotEmpty) {
+          await session.saveLov1ConfigJson(res.value!);
+        }
+      }
+
+      // Re-check enablement against the freshly loaded config.
+      if (!session.isImagesEnabled()) {
+        return const ImageDownloadResult(false, 0, 'Images are not enabled.');
       }
 
       final header = <String, dynamic>{
@@ -88,7 +109,7 @@ class ImageDownloadService {
         'versionId': ver,
       };
 
-      // ── 1) Delete list cleanup ──────────────────────────────────────────────
+      // ── 2) Delete-list cleanup ──────────────────────────────────────────────
       onProgress('Performing image cleanup...');
       final deleteUrl = session.getServiceUrl('IMAGE_DELETE_LIST');
       if (deleteUrl != null && deleteUrl.isNotEmpty) {
@@ -105,61 +126,76 @@ class ImageDownloadService {
         }
       }
 
-      // ── 2) Package downloads + extraction ──────────────────────────────────
+      // ── 3) Download ALL packages first (to temp files) ──────────────────────
       final packages = session.getDeviceDownloadPackages();
       final total = packages.length;
       final downloadUrl = session.getServiceUrl('IMAGES_DOWNLOAD');
-      final succeeded = <DownloadPackage>[];
+      final downloaded = <DownloadPackage, File>{};
       if (downloadUrl != null && downloadUrl.isNotEmpty && total > 0) {
         var done = 0;
         for (final pkg in packages) {
-          final req = {
+          final res = await repo.downloadImagePackage(downloadUrl, token, {
             ...header,
             'pkgDetails': {'packageName': pkg.pkgName},
-          };
-          final res = await repo.downloadImagePackage(downloadUrl, token, req);
+          });
           done++;
+          onProgress('Downloaded $done of $total packages...');
           if (res.isSuccess) {
-            onProgress('Downloaded $done of $total — extracting ${pkg.pkgName}...');
-            try {
-              _extractZip(res.value!, dir);
-              succeeded.add(pkg);
-            } catch (_) {/* skip bad package */}
-          } else {
-            onProgress('Downloaded $done of $total...');
+            final tmp = File('${dir.path}/.tmp_${done}_${pkg.pkgName}');
+            tmp.writeAsBytesSync(res.value!);
+            temps.add(tmp);
+            downloaded[pkg] = tmp;
           }
         }
       }
 
-      // ── 3) Confirm receipt ─────────────────────────────────────────────────
+      // ── 4) Extract ALL downloaded packages (overwriting duplicates) ─────────
+      final succeeded = <DownloadPackage>[];
+      var ex = 0;
+      for (final entry in downloaded.entries) {
+        ex++;
+        onProgress('Extracting $ex of ${downloaded.length}...');
+        try {
+          _extractZip(entry.value.readAsBytesSync(), dir);
+          succeeded.add(entry.key);
+        } catch (_) {/* skip bad package */}
+      }
+
+      // ── 5) Confirm receipt with the successfully extracted packages ─────────
       onProgress('Confirming image receipt...');
       final updateUrl = session.getServiceUrl('DEVICE_IMAGE_INFO_UPDATE');
       if (updateUrl != null && updateUrl.isNotEmpty && succeeded.isNotEmpty) {
-        final req = {
+        await repo.postText(updateUrl, token, {
           'deviceId': dev,
           'storeId': storeId,
           'downloadedPkgList': succeeded
               .map((p) => {'pkgName': p.pkgName, 'pkgLastUpdatedTs': p.pkgLastUpdatedTs})
               .toList(),
-        };
-        await repo.postText(updateUrl, token, req);
+        });
       }
 
       final count = ImageStore.count();
-      final now = _timestamp();
-      await session.saveImageDownloadData(now, '$count');
+      await session.saveImageDownloadData(_timestamp(), '$count');
       return ImageDownloadResult(true, count, 'Images downloaded: $count');
     } catch (e) {
       return ImageDownloadResult(false, 0, 'Image download failed: $e');
+    } finally {
+      for (final t in temps) {
+        try {
+          if (t.existsSync()) t.deleteSync();
+        } catch (_) {}
+      }
     }
   }
 
+  /// Extracts each file to the image dir, replacing any existing file of the
+  /// same name (writeAsBytesSync truncates/overwrites).
   void _extractZip(List<int> bytes, Directory target) {
     final archive = ZipDecoder().decodeBytes(bytes);
     for (final entry in archive) {
       if (entry.isFile) {
         final name = entry.name.split('/').last;
-        if (name.isEmpty) continue;
+        if (name.isEmpty || name.startsWith('.tmp_')) continue;
         File('${target.path}/$name').writeAsBytesSync(entry.content as List<int>);
       }
     }

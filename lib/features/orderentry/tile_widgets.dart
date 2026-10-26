@@ -239,12 +239,12 @@ class ItemTileCard extends StatelessWidget {
     );
   }
 
-  Widget _imageCell(dynamic e) {
-    // Resolve the item's IMAGE_ID and load it from the local image store.
-    final key = (e.attributeValue as String?)?.trim();
-    final imageId =
-        resolveItemField(key == null || key.isEmpty ? 'IMAGE_ID' : key, item);
+  Widget _imageCell(TileElement e) {
+    // Resolve the item's image-id column (IMAGE_ID / IMAGE_ID_2 / IMAGE_ID_3)
+    // and load it from the local image store. Blank when no image is available.
+    final imageId = resolveItemField(e.imageIdColumn, item);
     final file = ImageStore.fileFor(imageId);
+    if (file == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.all(3),
       child: Container(
@@ -254,11 +254,9 @@ class ItemTileCard extends StatelessWidget {
         ),
         alignment: Alignment.center,
         clipBehavior: Clip.antiAlias,
-        child: file != null
-            ? Image.file(file, fit: BoxFit.contain,
-                errorBuilder: (_, _, _) =>
-                    const Icon(Icons.image, size: 24, color: Colors.black26))
-            : const Icon(Icons.image, size: 24, color: Colors.black26),
+        child: Image.file(file,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const SizedBox.shrink()),
       ),
     );
   }

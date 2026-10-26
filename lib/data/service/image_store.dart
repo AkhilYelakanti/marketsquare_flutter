@@ -33,10 +33,14 @@ class ImageStore {
     return null;
   }
 
-  /// Count of files currently stored.
+  /// Count of image files currently stored (excludes temp/hidden files).
   static int count() {
     final base = _dir;
     if (base == null || !base.existsSync()) return 0;
-    return base.listSync().whereType<File>().length;
+    return base
+        .listSync()
+        .whereType<File>()
+        .where((f) => !f.path.split(Platform.pathSeparator).last.startsWith('.'))
+        .length;
   }
 }

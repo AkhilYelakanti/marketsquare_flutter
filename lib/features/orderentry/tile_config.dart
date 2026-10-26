@@ -36,9 +36,25 @@ class TileElement {
     this.allPositions = const [],
   });
 
-  bool get isImage => valueType.toUpperCase() == 'IMAGE';
+  bool get isImage => valueType.toUpperCase().startsWith('IMAGE');
   bool get isQtyEntry => attributeValue.toUpperCase() == 'QTY_ENTRY';
   bool get isCalculated => valueType.toUpperCase() == 'CALCULATED';
+
+  /// Item-file column holding the image id for this IMAGE tile. An explicit
+  /// `attributeValue` wins; otherwise IMAGE → IMAGE_ID, IMAGE2 → IMAGE_ID_2,
+  /// IMAGE3 → IMAGE_ID_3 (native parity).
+  String get imageIdColumn {
+    final av = attributeValue.trim();
+    if (av.isNotEmpty) return av;
+    switch (valueType.toUpperCase()) {
+      case 'IMAGE2':
+        return 'IMAGE_ID_2';
+      case 'IMAGE3':
+        return 'IMAGE_ID_3';
+      default:
+        return 'IMAGE_ID';
+    }
+  }
 
   int get sortRow {
     final p = valuePositions.isNotEmpty ? valuePositions : allPositions;

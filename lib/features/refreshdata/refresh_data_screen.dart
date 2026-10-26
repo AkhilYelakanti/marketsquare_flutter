@@ -55,6 +55,20 @@ class _State extends ConsumerState<RefreshDataScreen> {
       });
       return;
     }
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: const Text('Confirm Image Download'),
+        content: const Text('Download images now?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dctx, false), child: const Text('NO')),
+          TextButton(
+              onPressed: () => Navigator.pop(dctx, true), child: const Text('YES')),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
     setState(() {
       _busy = true;
       _result = null;
