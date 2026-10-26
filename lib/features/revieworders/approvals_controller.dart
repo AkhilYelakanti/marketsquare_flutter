@@ -158,6 +158,21 @@ class ApprovalsController extends Notifier<ApprovalsState> {
 
   void clearApprovedDetail() => state = state.copyWith(clearDetail: true);
 
+  /// Fetches a waiting order (fresh token first) for review/approval. Returns
+  /// the parsed order, or null on failure. The screen loads it into the order
+  /// editor so it opens on the ITEM ORDER screen with an APPROVE action.
+  Future<ApiItemOrder?> fetchForReview(String confirmationId) async {
+    await _refreshToken();
+    final res = await _repo.fetchApprovalOrder(
+      session: ref.read(sessionManagerProvider),
+      confirmationId: confirmationId,
+      waiting: true,
+      deviceId: await deviceId(),
+      versionId: await versionId(),
+    );
+    return res.isSuccess ? res.value : null;
+  }
+
   /// Fetches a waiting order, saves it to the local DB as UNSENT (enriching lines
   /// from the item catalog), and returns the new pending-order id (or -1).
   Future<int> loadOrderForEditing(String confirmationId) async {
@@ -192,8 +207,13 @@ class ApprovalsController extends Notifier<ApprovalsState> {
       ));
     }
     final totalQty = lines.fold<int>(0, (a, l) => a + (int.tryParse(l.qty) ?? 1));
+    // Native parity: the submit payload's customerStoreNumber must be the
+    // order's own store (plain, e.g. 16302), NOT the device origin id (16302M).
+    final store = (header?.customerStoreNumber.isNotEmpty ?? false)
+        ? header!.customerStoreNumber
+        : session.getActiveStoreId();
     final entity = PendingOrder(
-      storeId: session.getStoreId() ?? '',
+      storeId: store,
       orderType: header?.requestType ?? '',
       partition: header?.storePartition ?? '',
       poNumber: header?.custPoNumber ?? '',

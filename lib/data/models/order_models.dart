@@ -199,6 +199,7 @@ class ApiOrderHeader {
   final String storePartition;
   final String comment;
   final String totalEstimateValue;
+  final String customerStoreNumber;
   const ApiOrderHeader({
     this.custPoNumber = '',
     this.requestedDeliveryDate = '',
@@ -206,6 +207,7 @@ class ApiOrderHeader {
     this.storePartition = '',
     this.comment = '',
     this.totalEstimateValue = '',
+    this.customerStoreNumber = '',
   });
   factory ApiOrderHeader.fromJson(Map<String, dynamic> j) => ApiOrderHeader(
         custPoNumber: (j['custPoNumber'] ?? '').toString(),
@@ -213,6 +215,7 @@ class ApiOrderHeader {
         requestType: (j['requestType'] ?? '').toString(),
         storePartition: (j['storePartition'] ?? '').toString(),
         comment: (j['comment'] ?? '').toString(),
+        customerStoreNumber: (j['customerStoreNumber'] ?? '').toString(),
         totalEstimateValue:
             (((j['custTransmissionSummary'] as Map?)?['totalEstimateValue']) ?? '')
                 .toString(),

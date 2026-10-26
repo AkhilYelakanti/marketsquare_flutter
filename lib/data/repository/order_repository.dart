@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/api_log.dart';
 import '../db/pending_order.dart';
 import '../models/order_models.dart';
 import '../session/session_manager.dart';
@@ -548,6 +549,7 @@ class OrderRepository {
       );
       final body = (res.data ?? '').toString();
       final code = res.statusCode ?? 0;
+      ApiLog.add(url, payloadJson, body);
       if (code >= 200 && code < 300) return RepoResult.success(body);
       return RepoResult.failure(StateError('HTTP $code\n${_take(body, 500)}'));
     } catch (e) {

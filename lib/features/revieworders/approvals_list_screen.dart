@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/models/order_models.dart';
+import '../../data/session/session_providers.dart';
 import '../../router/app_routes.dart';
+import '../orderentry/order_entry_controller.dart';
 import '../orderentry/order_widgets.dart';
 import 'approvals_controller.dart';
 
@@ -57,19 +59,27 @@ class _State extends ConsumerState<ApprovalsListScreen> {
         'You are trying to approve the order:\n\n${_summary(o)}');
     if (yes != true || !mounted) return;
     setState(() => _retrieving = true);
-    final id = await ref
+    final order = await ref
         .read(approvalsControllerProvider.notifier)
-        .loadOrderForEditing(o.confirmationId);
+        .fetchForReview(o.confirmationId);
     if (!mounted) return;
     setState(() => _retrieving = false);
-    if (id != -1) {
-      // Native: opens the order for review/approval, then the send flow
-      // preselects it (green) with APPROVED SEND SELECTED.
-      context.push('${Routes.sendOrders}?currentOrderId=$id');
-    } else {
+    if (order == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Could not open order.')));
+      return;
     }
+    // Load into the order editor, open the ITEM ORDER screen (populated, with
+    // an APPROVE action that continues to the send flow).
+    final h = order.header;
+    final store = (h?.customerStoreNumber.isNotEmpty ?? false)
+        ? h!.customerStoreNumber
+        : ref.read(sessionManagerProvider).getActiveStoreId();
+    await ref
+        .read(orderEntryControllerProvider.notifier)
+        .loadApprovalOrder(order, store, o.confirmationId);
+    if (!mounted) return;
+    context.push(Routes.orderFilling);
   }
 
   Future<void> _openApproved(ApprovalOrderSummary o) async {
@@ -246,24 +256,24 @@ class _OrderRow extends StatelessWidget {
         child: Row(
           children: [
             SizedBox(
-              width: 40,
+              width: 32,
               child: waiting
                   ? GestureDetector(
                       onTap: onToggle,
                       child: Container(
-                        width: 28,
-                        height: 28,
+                        width: 22,
+                        height: 22,
                         decoration: BoxDecoration(
+                          shape: BoxShape.circle,
                           color: selected ? primary : Colors.white,
                           border: Border.all(color: primary, width: 2),
-                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: selected
-                            ? const Icon(Icons.check, color: Colors.white, size: 20)
+                            ? const Icon(Icons.check, color: Colors.white, size: 14)
                             : null,
                       ),
                     )
-                  : const Icon(Icons.chevron_right),
+                  : const Icon(Icons.chevron_right, size: 20),
             ),
             cell(order.department, 2),
             cell(order.orderDate, 3),

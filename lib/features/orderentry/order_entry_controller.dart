@@ -29,6 +29,9 @@ class OrderEntryState {
   final OrderSort activeSort;
   /// Per-item editable tile fields (FILL_EDITABLE), keyed `"itemCode|FIELD"`.
   final Map<String, String> customFields;
+  /// Confirmation number when this order was loaded from Order Approval (drives
+  /// the APPROVED SEND SELECTED path); empty for a normal order.
+  final String approvalConfirmation;
 
   OrderEntryState({
     required this.config,
@@ -43,6 +46,7 @@ class OrderEntryState {
     this.pendingAlert,
     this.activeSort = OrderSort.none,
     this.customFields = const {},
+    this.approvalConfirmation = '',
   });
 
   String customField(Map<String, String> item, String key) =>
@@ -61,6 +65,7 @@ class OrderEntryState {
     PendingItemStatusAlert? pendingAlert,
     OrderSort? activeSort,
     Map<String, String>? customFields,
+    String? approvalConfirmation,
     bool clearCustomer = false,
     bool clearOrderType = false,
     bool clearEditingId = false,
@@ -82,6 +87,7 @@ class OrderEntryState {
         pendingAlert: clearAlert ? null : (pendingAlert ?? this.pendingAlert),
         activeSort: activeSort ?? this.activeSort,
         customFields: customFields ?? this.customFields,
+        approvalConfirmation: approvalConfirmation ?? this.approvalConfirmation,
       );
 
   /// Order lines in display order: sorted by the active QTY/CHARGE sort, else
@@ -513,6 +519,7 @@ class OrderEntryController extends Notifier<OrderEntryState> {
       totalValue: s.totalEstValue.toStringAsFixed(2),
       totalCube: s.totalCube.toStringAsFixed(2),
       createdAt: DateTime.now().millisecondsSinceEpoch,
+      confirmationNumber: s.approvalConfirmation,
     );
     final id = await _dao.insert(entity);
     final oldEdit = s.editingOrderId;
@@ -539,6 +546,49 @@ class OrderEntryController extends Notifier<OrderEntryState> {
       selectedOrderType: state.selectedOrderType ?? 'ITEM_ORDER',
       orderLines: lines,
       headerValues: {...state.headerValues, 'PO': '$storeId${_poTimestamp()}'},
+    );
+  }
+
+  /// Loads a fetched Order-Approval order into the editor (ITEM ORDER screen):
+  /// enriches each detail from the catalog, sets the order type / partition /
+  /// header, and records the confirmation number so the send flow treats it as
+  /// an approval. [storeId] is the order's own store (plain, not the device
+  /// origin id) so the submit payload's customerStoreNumber is correct.
+  Future<void> loadApprovalOrder(
+      ApiItemOrder order, String storeId, String confirmationId) async {
+    final repo = ref.read(itemRepositoryProvider);
+    final h = order.header;
+    final partition = h?.storePartition ?? '';
+    final lines = <OrderLine>[];
+    for (final d in order.details) {
+      final matches = await repo.queryByExactCode(d.itemNumber);
+      final item = matches.isNotEmpty
+          ? matches.first
+          : {
+              ItemRepository.colItem: d.itemNumber,
+              ItemRepository.colDesc:
+                  d.itemDescription.isNotEmpty ? d.itemDescription : 'Item ${d.itemNumber}',
+              ItemRepository.colDept: d.storeDepartment,
+              ItemRepository.colUpc: d.itemUpc,
+            };
+      lines.add(OrderLine(
+          item: item,
+          qty: d.quantity.isNotEmpty ? d.quantity : '1',
+          partition: partition));
+    }
+    state = state.copyWith(
+      selectedCustomer: CustomerEntry(storeId: storeId, storeName: ''),
+      selectedOrderType: (h?.requestType.isNotEmpty ?? false) ? h!.requestType : 'ITEM_ORDER',
+      orderLines: lines,
+      headerValues: {
+        ...state.headerValues,
+        'PARTITION': partition,
+        'PO': h?.custPoNumber ?? '',
+        'COMMENTS': h?.comment ?? '',
+        'DELIVERY_DATE': h?.requestedDeliveryDate ?? '',
+      },
+      approvalConfirmation: confirmationId,
+      clearEditingId: true,
     );
   }
 
