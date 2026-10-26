@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants.dart';
+import '../../data/service/image_download_service.dart';
 import '../../data/session/session_providers.dart';
 import '../../widgets/brand_logo.dart';
 import '../../widgets/network_status_action.dart';
@@ -41,6 +42,32 @@ class _State extends ConsumerState<RefreshDataScreen> {
       _busy = false;
       _resultError = !ok;
       _result = ok ? 'Refresh complete.' : 'Refresh failed.';
+    });
+  }
+
+  Future<void> _downloadImages() async {
+    if (_busy) return;
+    final sm = ref.read(sessionManagerProvider);
+    if (!sm.isImagesEnabled()) {
+      setState(() {
+        _result = 'Images are not enabled in configuration.';
+        _resultError = true;
+      });
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _result = null;
+      _status = 'Starting image download...';
+    });
+    final res = await ref
+        .read(imageDownloadServiceProvider)
+        .executeDownload((m) => setState(() => _status = m));
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _resultError = !res.ok;
+      _result = res.message;
     });
   }
 
@@ -84,7 +111,7 @@ class _State extends ConsumerState<RefreshDataScreen> {
               children: [
                 _refreshCard(primary, file, date, count),
                 const SizedBox(height: 8),
-                _imagesCard(primary, sm.getRefreshDate()),
+                _imagesCard(primary),
                 const Spacer(),
                 const Padding(
                   padding: EdgeInsets.only(bottom: 4),
@@ -174,24 +201,29 @@ class _State extends ConsumerState<RefreshDataScreen> {
     );
   }
 
-  Widget _imagesCard(Color primary, String? date) {
+  Widget _imagesCard(Color primary) {
+    final sm = ref.read(sessionManagerProvider);
+    final date = sm.getImageDownloadDate();
+    final count = sm.getImageDownloadCount();
     return Card(
       color: const Color(0xFFE0E0E0),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          children: [
-            _circleIcon(Icons.photo_library, primary),
-            const SizedBox(height: 4),
-            const Text('DOWNLOAD IMAGES',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(height: 4),
-            Text('DOWNLOADED ${date ?? '—'}',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-            // Image count is populated once the image-download service is wired.
-            const Text('IMAGES IN STORE —',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-          ],
+      child: InkWell(
+        onTap: _busy ? null : _downloadImages,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            children: [
+              _circleIcon(Icons.photo_library, primary),
+              const SizedBox(height: 4),
+              const Text('DOWNLOAD IMAGES',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 4),
+              Text('DOWNLOADED ${date ?? '—'}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+              Text('IMAGES IN STORE ${count ?? '—'}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
+          ),
         ),
       ),
     );

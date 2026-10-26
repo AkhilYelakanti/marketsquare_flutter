@@ -83,6 +83,26 @@ class DataSyncRepository {
     }
   }
 
+  /// Binary image-package download (IMAGES_DOWNLOAD). Returns the raw zip bytes.
+  Future<RepoResult<List<int>>> downloadImagePackage(
+      String url, String token, Map<String, dynamic> request) async {
+    try {
+      final res = await _dio.post(url,
+          data: jsonEncode(request), options: _headers(token, ResponseType.bytes));
+      final code = res.statusCode ?? 0;
+      ApiLog.add(url, jsonEncode(request), 'HTTP $code (binary zip, not shown)');
+      if (code < 200 || code >= 300) {
+        return RepoResult.failure(StateError('HTTP $code for IMAGES_DOWNLOAD'));
+      }
+      final data = res.data;
+      final bytes = data is List<int> ? data : <int>[];
+      if (bytes.isEmpty) return RepoResult.failure(StateError('Empty package'));
+      return RepoResult.success(bytes);
+    } catch (e) {
+      return RepoResult.failure(e);
+    }
+  }
+
   /// Text endpoints (LOV1 config, inventory).
   Future<RepoResult<String>> postText(
       String url, String token, Map<String, dynamic> request) async {

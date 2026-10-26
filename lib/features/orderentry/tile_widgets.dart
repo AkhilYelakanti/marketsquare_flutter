@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/html_text.dart';
+import '../../data/service/image_store.dart';
 import '../../router/app_routes.dart';
 import 'alert_pipeline.dart';
 import 'field_resolver.dart';
@@ -189,7 +190,7 @@ class ItemTileCard extends StatelessWidget {
           if (vb == null) continue;
           Widget content;
           if (e.isImage) {
-            content = _imageCell();
+            content = _imageCell(e);
           } else if (e.isQtyEntry) {
             content = _qtyEntry(primary);
           } else if (e.valueType.toUpperCase() == 'FILL_EDITABLE') {
@@ -238,17 +239,29 @@ class ItemTileCard extends StatelessWidget {
     );
   }
 
-  Widget _imageCell() => Padding(
-        padding: const EdgeInsets.all(3),
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF2F2F2),
-            borderRadius: BorderRadius.circular(3),
-          ),
-          alignment: Alignment.center,
-          child: const Icon(Icons.image, size: 24, color: Colors.black26),
+  Widget _imageCell(dynamic e) {
+    // Resolve the item's IMAGE_ID and load it from the local image store.
+    final key = (e.attributeValue as String?)?.trim();
+    final imageId =
+        resolveItemField(key == null || key.isEmpty ? 'IMAGE_ID' : key, item);
+    final file = ImageStore.fileFor(imageId);
+    return Padding(
+      padding: const EdgeInsets.all(3),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F2F2),
+          borderRadius: BorderRadius.circular(3),
         ),
-      );
+        alignment: Alignment.center,
+        clipBehavior: Clip.antiAlias,
+        child: file != null
+            ? Image.file(file, fit: BoxFit.contain,
+                errorBuilder: (_, _, _) =>
+                    const Icon(Icons.image, size: 24, color: Colors.black26))
+            : const Icon(Icons.image, size: 24, color: Colors.black26),
+      ),
+    );
+  }
 
   /// Qty entry (native parity): [+] on top, the number in a white box, and a
   /// red [−] at the bottom. [−] at qty ≤ 1 deletes the line.

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/models/order_models.dart';
+import '../../data/service/image_download_service.dart';
+import '../../data/session/session_providers.dart';
 import '../../router/app_routes.dart';
 import '../datasync/item_refresh_service.dart';
 import 'order_entry_controller.dart';
@@ -21,6 +23,84 @@ class SelectCustomerScreen extends ConsumerStatefulWidget {
 
 class _SelectCustomerScreenState extends ConsumerState<SelectCustomerScreen> {
   String _search = '';
+  bool _downloading = false;
+  String _status = '';
+
+  /// Native parity: after picking a customer, offer the image download
+  /// (NOW/LATER → YES/NO) when LOV imageLovConfig enables it, then continue to
+  /// order type.
+  Future<void> _onCustomer(CustomerEntry c) async {
+    ref.read(orderEntryControllerProvider.notifier).selectCustomer(c);
+    final sm = ref.read(sessionManagerProvider);
+    if (!sm.isImagesEnabled()) {
+      _goOrderType();
+      return;
+    }
+    final now = await _askDownload(sm.getImagesTimeToRefresh());
+    if (!mounted) return;
+    if (now != true) {
+      _goOrderType();
+      return;
+    }
+    final yes = await _confirmDownload();
+    if (!mounted) return;
+    if (yes != true) {
+      _goOrderType();
+      return;
+    }
+    await _runDownload();
+    if (mounted) _goOrderType();
+  }
+
+  void _goOrderType() {
+    if (mounted) context.push(Routes.selectOrderType);
+  }
+
+  Future<bool?> _askDownload(int minutes) {
+    final timeText = minutes > 0
+        ? 'approximately $minutes minute${minutes != 1 ? 's' : ''}'
+        : 'some time';
+    return showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: const Text('Download Images'),
+        content: Text('Would you like to retrieve item images?\n\nIt will take $timeText.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dctx, false), child: const Text('LATER')),
+          TextButton(
+              onPressed: () => Navigator.pop(dctx, true), child: const Text('NOW')),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _confirmDownload() {
+    return showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: const Text('Confirm Image Download'),
+        content: const Text('Download images now?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dctx, false), child: const Text('NO')),
+          TextButton(
+              onPressed: () => Navigator.pop(dctx, true), child: const Text('YES')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runDownload() async {
+    setState(() {
+      _downloading = true;
+      _status = 'Starting image download...';
+    });
+    await ref
+        .read(imageDownloadServiceProvider)
+        .executeDownload((m) => mounted ? setState(() => _status = m) : null);
+    if (mounted) setState(() => _downloading = false);
+  }
 
   @override
   void initState() {
@@ -42,7 +122,6 @@ class _SelectCustomerScreenState extends ConsumerState<SelectCustomerScreen> {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
     final st = ref.watch(orderEntryControllerProvider);
-    final ctrl = ref.read(orderEntryControllerProvider.notifier);
 
     final q = _search.trim().toLowerCase();
     final filtered = q.isEmpty
@@ -55,7 +134,47 @@ class _SelectCustomerScreenState extends ConsumerState<SelectCustomerScreen> {
     return Scaffold(
       appBar: orderAppBar(subtitle: 'SELECT CUSTOMER'),
       bottomNavigationBar: OrderBottomBar(onBack: () => context.go(Routes.dashboard)),
-      body: Column(
+      body: Stack(
+        children: [
+          _list(primary, filtered),
+          if (_downloading)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black54,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                          width: 60,
+                          height: 60,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 5)),
+                      const SizedBox(height: 18),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(_status,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text('please wait...',
+                          style: TextStyle(color: Colors.white, fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _list(Color primary, List<CustomerEntry> filtered) {
+    return Column(
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -89,16 +208,12 @@ class _SelectCustomerScreenState extends ConsumerState<SelectCustomerScreen> {
                       final c = filtered[i];
                       return _CustomerRow(
                         customer: c,
-                        onTap: () {
-                          ctrl.selectCustomer(c);
-                          context.push(Routes.selectOrderType);
-                        },
+                        onTap: () => _onCustomer(c),
                       );
                     },
                   ),
           ),
         ],
-      ),
     );
   }
 }

@@ -196,6 +196,50 @@ class SessionManager {
   /// `enableDebug` == Y → show the DEBUG / SCAN DEBUG tiles in Help.
   bool isDebugEnabled() => _lov1Flag('enableDebug');
 
+  // ── Image download (LOV1 imageLovConfig) ──────────────────────────────────────
+  Map<String, dynamic>? _imageLovConfig() {
+    final v = lov1Root()?['imageLovConfig'];
+    return v is Map<String, dynamic> ? v : null;
+  }
+
+  /// `imageLovConfig.imagesEnabled` == Y → image download is available.
+  bool isImagesEnabled() {
+    final raw = (_imageLovConfig()?['imagesEnabled'] ?? '').toString().trim();
+    return raw.toUpperCase() == 'Y' || raw.toLowerCase() == 'true';
+  }
+
+  /// Days between automatic image refreshes (`imagesTimeToRefresh`; 0 = always).
+  int getImagesTimeToRefresh() {
+    final raw = (_imageLovConfig()?['imagesTimeToRefresh'] ?? '').toString().trim();
+    return int.tryParse(raw) ?? 0;
+  }
+
+  /// Packages to download (`deviceDownloadPackages`): each {pkgName, pkgSize,
+  /// pkgLastUpdatedTs}.
+  List<DownloadPackage> getDeviceDownloadPackages() {
+    final arr = _imageLovConfig()?['deviceDownloadPackages'];
+    if (arr is! List) return const [];
+    return arr
+        .whereType<Map>()
+        .map((m) => DownloadPackage(
+              (m['pkgName'] ?? '').toString(),
+              (m['pkgSize'] ?? '').toString(),
+              (m['pkgLastUpdatedTs'] ?? '').toString(),
+            ))
+        .where((p) => p.pkgName.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> saveImageDownloadData(String date, String count) async {
+    await _prefs.setString('IMAGE_DOWNLOAD_DATE', date);
+    await _prefs.setString('IMAGE_DOWNLOAD_COUNT', count);
+    await _prefs.setInt('IMAGE_DOWNLOAD_EPOCH', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  String? getImageDownloadDate() => _prefs.getString('IMAGE_DOWNLOAD_DATE');
+  String? getImageDownloadCount() => _prefs.getString('IMAGE_DOWNLOAD_COUNT');
+  int getImageDownloadEpoch() => _prefs.getInt('IMAGE_DOWNLOAD_EPOCH') ?? 0;
+
   /// Minimum characters before a catalog search fires (LOV1
   /// `minSearchCharecterLength`, spelling preserved; default 3).
   int getMinSearchChars() {
@@ -326,6 +370,14 @@ class SessionManager {
   Future<void> saveFcmToken(String token) =>
       _prefs.setString(fcmTokenKey, token);
   String? getCachedFcmToken() => _prefs.getString(fcmTokenKey);
+}
+
+/// One LOV1 `deviceDownloadPackages` entry (image zip package).
+class DownloadPackage {
+  final String pkgName;
+  final String pkgSize;
+  final String pkgLastUpdatedTs;
+  const DownloadPackage(this.pkgName, this.pkgSize, this.pkgLastUpdatedTs);
 }
 
 /// A rep-selectable customer/store (native `CustomerEntry`).

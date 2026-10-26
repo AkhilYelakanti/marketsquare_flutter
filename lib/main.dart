@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'data/push/fcm_service.dart';
+import 'data/service/image_store.dart';
 import 'data/session/session_manager.dart';
 import 'data/session/session_providers.dart';
 
@@ -11,6 +12,9 @@ Future<void> main() async {
 
   // SharedPreferences-backed session (replaces native SessionManager).
   final session = await SessionManager.create();
+
+  // Resolve the local item-image directory so catalog tiles can render images.
+  await ImageStore.init();
 
   // Show the UI first — never block the first frame on push setup.
   runApp(
