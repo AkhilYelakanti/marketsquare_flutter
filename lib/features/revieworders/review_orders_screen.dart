@@ -30,7 +30,8 @@ class ReviewOrdersScreen extends ConsumerWidget {
       const _Opt('View All Previous Store Orders', Icons.assignment_late,
           Routes.viewStoreOrdersSelect),
       if (sm.isOrderApprovalEnabled())
-        const _Opt('Order Approval', Icons.thumb_up, Routes.orderApproval),
+        const _Opt('Order Approval', Icons.thumb_up,
+            '${Routes.approvalsList}?mode=WAITING'),
       if (sm.isViewInvoiceEnabled())
         const _Opt('View Invoices', Icons.description, Routes.invoiceList),
       if (sm.isInvoicePdfEnabled())

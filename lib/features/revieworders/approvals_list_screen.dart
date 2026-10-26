@@ -109,12 +109,13 @@ class _State extends ConsumerState<ApprovalsListScreen> {
           switch (st.loadState) {
             ApprovalLoad.loading =>
               const Center(child: CircularProgressIndicator()),
-            ApprovalLoad.error => const Center(
+            ApprovalLoad.error => Center(
                 child: Padding(
-                  padding: EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(24),
                   child: Text(
-                      'Could not load approvals.\nCheck connection + endpoint config.',
-                      textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                      'Could not load approvals.\n${st.error}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey)),
                 ),
               ),
             ApprovalLoad.idle => _content(primary, st),

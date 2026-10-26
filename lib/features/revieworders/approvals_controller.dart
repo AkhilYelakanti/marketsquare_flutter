@@ -21,6 +21,7 @@ class ApprovalsState {
   final bool deleting;
   final ApiItemOrder? approvedDetail;
   final bool loadingDetail;
+  final String error;
 
   const ApprovalsState({
     this.waiting = true,
@@ -30,6 +31,7 @@ class ApprovalsState {
     this.deleting = false,
     this.approvedDetail,
     this.loadingDetail = false,
+    this.error = '',
   });
 
   ApprovalsState copyWith({
@@ -41,6 +43,7 @@ class ApprovalsState {
     ApiItemOrder? approvedDetail,
     bool? loadingDetail,
     bool clearDetail = false,
+    String? error,
   }) =>
       ApprovalsState(
         waiting: waiting ?? this.waiting,
@@ -50,6 +53,7 @@ class ApprovalsState {
         deleting: deleting ?? this.deleting,
         approvedDetail: clearDetail ? null : (approvedDetail ?? this.approvedDetail),
         loadingDetail: loadingDetail ?? this.loadingDetail,
+        error: error ?? this.error,
       );
 }
 
@@ -77,9 +81,11 @@ class ApprovalsController extends Notifier<ApprovalsState> {
       versionId: await versionId(),
     );
     if (res.isSuccess) {
-      state = state.copyWith(orders: res.value!.ordersList, loadState: ApprovalLoad.idle);
+      state = state.copyWith(
+          orders: res.value!.ordersList, loadState: ApprovalLoad.idle, error: '');
     } else {
-      state = state.copyWith(loadState: ApprovalLoad.error);
+      state = state.copyWith(
+          loadState: ApprovalLoad.error, error: '${res.error}');
     }
   }
 
