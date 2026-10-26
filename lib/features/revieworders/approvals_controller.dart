@@ -67,12 +67,32 @@ class ApprovalsController extends Notifier<ApprovalsState> {
   @override
   ApprovalsState build() => const ApprovalsState();
 
+  /// Mints a fresh auth token before an order/approval REST call. The stored
+  /// token expires on long-lived sessions, which the approval host rejects with
+  /// HTTP 401 invalid_token; a fresh token from ACCESS_TOKEN fixes that.
+  Future<void> _refreshToken() async {
+    final session = ref.read(sessionManagerProvider);
+    final tokenUrl = session.getServiceUrl('ACCESS_TOKEN');
+    final serviceId = session.getServiceId();
+    final userId = session.getUserId();
+    if (tokenUrl == null || serviceId == null || userId == null) return;
+    final t = await ref.read(loginRepositoryProvider).getAuthToken(
+          tokenUrl: tokenUrl,
+          serviceId: serviceId,
+          deviceId: await deviceId(),
+          accessId: userId,
+          versionId: await versionId(),
+        );
+    if (t.isSuccess) await session.saveAuthToken(t.value!.accessToken);
+  }
+
   Future<void> load(bool waiting) async {
     state = state.copyWith(
         waiting: waiting,
         orders: const [],
         selectedIds: const {},
         loadState: ApprovalLoad.loading);
+    await _refreshToken();
     final session = ref.read(sessionManagerProvider);
     final res = await _repo.fetchApprovals(
       session: session,
@@ -101,6 +121,7 @@ class ApprovalsController extends Notifier<ApprovalsState> {
     final toDelete =
         state.orders.where((o) => state.selectedIds.contains(o.confirmationId)).toList();
     state = state.copyWith(deleting: true);
+    await _refreshToken();
     final res = await _repo.deleteWaitingApprovals(
       session: ref.read(sessionManagerProvider),
       orders: toDelete,
@@ -123,6 +144,7 @@ class ApprovalsController extends Notifier<ApprovalsState> {
 
   Future<void> loadApprovedDetail(String confirmationId) async {
     state = state.copyWith(loadingDetail: true, clearDetail: true);
+    await _refreshToken();
     final res = await _repo.fetchApprovalOrder(
       session: ref.read(sessionManagerProvider),
       confirmationId: confirmationId,
@@ -139,6 +161,7 @@ class ApprovalsController extends Notifier<ApprovalsState> {
   /// Fetches a waiting order, saves it to the local DB as UNSENT (enriching lines
   /// from the item catalog), and returns the new pending-order id (or -1).
   Future<int> loadOrderForEditing(String confirmationId) async {
+    await _refreshToken();
     final session = ref.read(sessionManagerProvider);
     final res = await _repo.fetchApprovalOrder(
       session: session,
