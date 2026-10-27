@@ -5,9 +5,11 @@
 *.swp
 .DS_Store
 .atom/
+.build/
 .buildlog/
 .history
 .svn/
+.swiftpm/
 migrate_working_dir/
 hs_err_pid*.log
 replay_pid*.log
@@ -87,3 +89,6 @@ ios/Runner/GoogleService-Info.plist
 
 # Coverage
 coverage/
+
+# Widget Preview related
+.widget_preview/

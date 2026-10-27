@@ -32,7 +32,7 @@ dependencies:
   flutter_local_notifications: ^18.0.1
 
   # Barcode scanning (replaces CameraX + MLKit)
-  mobile_scanner: ^6.0.2
+  mobile_scanner: ^7.4.2
 
   # Brand logo from remote URL (replaces Coil)
   cached_network_image: ^3.4.1
