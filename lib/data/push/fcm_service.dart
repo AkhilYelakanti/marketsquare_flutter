@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -24,7 +25,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 class FcmService {
   static const channelId = 'marketsquare_default';
   static const channelName = 'MarketSquare Notifications';
-  static const _fetchTimeout = Duration(seconds: 5);
+  static const _fetchTimeout = Duration(seconds: 10);
 
   static bool _available = false;
   static final _localNotifications = FlutterLocalNotificationsPlugin();
@@ -119,17 +120,38 @@ class FcmService {
   }
 
   /// Returns the current FCM token or the cached one, never throwing.
-  /// Mirrors `FcmTokenProvider.getToken` (5s timeout, cache fallback).
+  /// Always attempts a live fetch (ensuring Firebase is initialized first) so a
+  /// slow/late [init] doesn't yield an empty token at login. On iOS the APNs
+  /// token must arrive before FCM can mint a token, so we wait for it.
   static Future<String?> getToken() async {
-    if (!_available) return _cachedTokenFromPrefs();
     try {
-      final token = await FirebaseMessaging.instance.getToken().timeout(
+      // Idempotent — no-op if init() already ran; required if getToken races it.
+      if (!_available) {
+        await Firebase.initializeApp();
+        _available = true;
+        try {
+          await FirebaseMessaging.instance.requestPermission();
+        } catch (_) {}
+      }
+      final messaging = FirebaseMessaging.instance;
+      if (Platform.isIOS) {
+        // FCM getToken returns null on iOS until the APNs token is set.
+        var apns = await messaging.getAPNSToken();
+        for (var i = 0; apns == null && i < 10; i++) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          apns = await messaging.getAPNSToken();
+        }
+      }
+      final token = await messaging.getToken().timeout(
             _fetchTimeout,
             onTimeout: () => null,
           );
-      if (token != null) await _cacheToken(token);
-      return token ?? await _cachedTokenFromPrefs();
-    } catch (_) {
+      if (token != null && token.isNotEmpty) await _cacheToken(token);
+      return (token != null && token.isNotEmpty)
+          ? token
+          : await _cachedTokenFromPrefs();
+    } catch (e) {
+      debugPrint('FCM: getToken failed ($e)');
       return _cachedTokenFromPrefs();
     }
   }
