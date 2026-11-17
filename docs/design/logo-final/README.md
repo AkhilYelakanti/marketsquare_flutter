@@ -5,7 +5,7 @@ Straight M with a black square badge holding an S set in Archivo Black. Wordmark
 ## Colours
 | Name | Hex | Use |
 |---|---|---|
-| Brand red | `#C4202E` | M, "Square", app icon background |
+| Brand red | `#DB2031` | M, "Square", app icon background |
 | Ink | `#1D1B1A` | "Market", badge on light backgrounds |
 | Pink | `#FFC9CE` | Badge in the on-red lockups |
 | Light red | `#FF8A93` | "Square" and badge on dark backgrounds |
@@ -26,6 +26,8 @@ Straight M with a black square badge holding an S set in Archivo Black. Wordmark
 - `png/android`: `mipmap-*/ic_launcher.png`, `ic_launcher_round.png`, and 432 px adaptive layers.
 - `png/ios`: `AppIcon-{1024,180,167,152,120,87,80,76,60,58,40,29,20}.png` (square, opaque).
 - `png/web`: favicons 16/32/48, `apple-touch-icon` 180, `icon-192`, `icon-512`.
+- `png/header-tile`: option A for the red app bar, the white rounded tile with the colour mark (32 to 1024 px), plus `flutter/1.0x, 2.0x, 3.0x` for a 36 logical-pixel logo. `svg/marketsquare-header-tile.svg` is the master.
+- `header-preview.png`: how the tile looks on the app header.
 - `brand-sheet.png`: every version on its intended background.
 
 ## Usage rules

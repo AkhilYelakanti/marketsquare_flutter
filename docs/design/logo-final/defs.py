@@ -8,7 +8,7 @@ _f={}
 def font(n):
     if n not in _f: _f[n]=TTFont(FD+n)
     return _f[n]
-RED="#C4202E"; INK="#1D1B1A"; WHITE="#FFFFFF"; PINK="#FFC9CE"; LRED="#FF8A93"; BGL="#FAF8F7"; DARK="#17120F"
+RED="#DB2031"; INK="#1D1B1A"; WHITE="#FFFFFF"; PINK="#FFC9CE"; LRED="#FF8A93"; BGL="#FAF8F7"; DARK="#17120F"
 def tpath(fn,s,size,x,y,ls=0):
     f=font(fn); gs=f.getGlyphSet(); cm=f.getBestCmap(); sc=size/f['head'].unitsPerEm
     ds=[]; cx=x

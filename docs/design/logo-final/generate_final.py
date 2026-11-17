@@ -60,4 +60,12 @@ for px in (1024,180,167,152,120,87,80,76,60,58,40,29,20): add("marketsquare-app-
 # web
 for px,nm in ((16,'favicon-16'),(32,'favicon-32'),(48,'favicon-48'),(180,'apple-touch-icon'),(192,'icon-192'),(512,'icon-512')):
     add("marketsquare-app-icon",f"png/web/{nm}.png",px)
+
+# header tile (white rounded tile + full-colour mark), for the red app bar
+tile=d.svg(f'<rect width="100" height="100" rx="24" fill="#FFFFFF"/><g transform="translate(14 13) scale(.72)">{mark4("light")}</g>',100,100)
+wr(f"{D}/svg/marketsquare-header-tile.svg",tile)
+for px in (32,48,64,96,128,192,512,1024): add("marketsquare-header-tile",f"png/header-tile/marketsquare-header-tile-{px}.png",px)
+# Flutter asset densities for a 36 logical-pixel header logo
+for k,px in (("1.0x",36),("2.0x",72),("3.0x",108)):
+    os.makedirs(f"{D}/png/header-tile/flutter/{k}",exist_ok=True); add("marketsquare-header-tile",f"png/header-tile/flutter/{k}/marketsquare_header_tile.png",px)
 wr(f"{D}/manifest.json",json.dumps(jobs)); print(len(jobs))
