@@ -3,17 +3,26 @@ sys.path.insert(0,os.path.dirname(__file__))
 import defs as d
 from defs import *
 D=sys.argv[1]
-SC="M58 70C58 64 42 64 42 71C42 77 58 76 58 83C58 90 42 90 42 84"
+from fontTools.ttLib import TTFont
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+from fontTools.pens.boundsPen import BoundsPen
+S_FONT=os.path.join(os.path.dirname(os.path.abspath(__file__)),"fonts","ArchivoBlack-Regular.ttf")
+def _spath(h=14.5,cx=50,cy=76.2):
+    f=TTFont(S_FONT); gs=f.getGlyphSet(); gn=f.getBestCmap()[ord("S")]
+    bp=BoundsPen(gs); gs[gn].draw(bp); x0,y0,x1,y1=bp.bounds
+    sc=h/(y1-y0); xc,yc=(x0+x1)/2,(y0+y1)/2
+    pen=SVGPathPen(gs,ntos=lambda v:f"{v:.2f}"); gs[gn].draw(TransformPen(pen,(sc,0,0,-sc,cx-sc*xc,cy+sc*yc))); return pen.getCommands()
+SP=_spath()
 SCH={'light':(RED,INK,WHITE),'dark':(WHITE,LRED,DARK),'red':(WHITE,PINK,RED),'monob':(INK,INK,None),'monow':(WHITE,WHITE,None),'icon':(WHITE,INK,WHITE)}
 d.SCHEME['monob']=dict(c1=INK,c2=INK,a=INK,b=INK); d.SCHEME['monow']=dict(c1=WHITE,c2=WHITE,a=WHITE,b=WHITE)
 def mark4(sc,badge=True):
     cm,cb,cs=SCH[sc]
     m=f'<path d="M20 84V20L50 56L80 20V84" fill="none" stroke="{cm}" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>'
-    sp=f'<path d="{SC}" fill="none" stroke="{{c}}" stroke-width="6.5" stroke-linecap="round" transform="translate(50 76.5) scale(.5) translate(-50 -77)"/>'
     if cs is None:
-        return (f'<defs><mask id="ks"><rect x="38" y="64" width="24" height="24" fill="#fff"/>{sp.format(c="#000")}</mask></defs>'
+        return (f'<defs><mask id="ks"><rect x="38" y="64" width="24" height="24" fill="#fff"/><path d="{SP}" fill="#000"/></mask></defs>'
                 +m+f'<rect x="38" y="64" width="24" height="24" rx="6" fill="{cb}" mask="url(#ks)"/>')
-    return m+f'<rect x="38" y="64" width="24" height="24" rx="6" fill="{cb}"/>'+sp.format(c=cs)
+    return m+f'<rect x="38" y="64" width="24" height="24" rx="6" fill="{cb}"/><path d="{SP}" fill="{cs}"/>'
 d.mark=lambda n,sc,bg=True: mark4(sc)
 def wr(path,s): open(path,"w").write(s)
 jobs=[]

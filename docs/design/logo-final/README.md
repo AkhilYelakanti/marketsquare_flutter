@@ -1,6 +1,6 @@
 # MarketSquare logo (final set)
 
-Straight M with a square-S badge. Wordmark: Inter ExtraBold "Market" + Inter Medium "Square", converted to outlines.
+Straight M with a black square badge holding an S set in Archivo Black. Wordmark: Inter ExtraBold "Market" + Inter Medium "Square". All text is converted to outlines.
 
 ## Colours
 | Name | Hex | Use |
@@ -35,4 +35,4 @@ Straight M with a square-S badge. Wordmark: Inter ExtraBold "Market" + Inter Med
 - Do not stretch, rotate, recolour or add effects.
 
 ## Regenerate
-`generate_final.py` and `defs.py` produce the SVGs. Requires `fonttools` and the Inter font files.
+`generate_final.py` and `defs.py` produce the SVGs and a manifest for PNG export. Requires `fonttools` and the Inter font files; `fonts/ArchivoBlack-Regular.ttf` (SIL Open Font License) is included for the S.
