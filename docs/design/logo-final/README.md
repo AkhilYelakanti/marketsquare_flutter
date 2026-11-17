@@ -7,7 +7,7 @@ Straight M with a square-S badge. Wordmark: Inter ExtraBold "Market" + Inter Med
 |---|---|---|
 | Brand red | `#C4202E` | M, "Square", app icon background |
 | Ink | `#1D1B1A` | "Market", badge on light backgrounds |
-| Pink | `#FFC9CE` | Badge on red backgrounds |
+| Pink | `#FFC9CE` | Badge in the on-red lockups |
 | Light red | `#FF8A93` | "Square" and badge on dark backgrounds |
 | Dark | `#17120F` | Dark backgrounds, S on reversed badge |
 
@@ -19,7 +19,7 @@ Straight M with a square-S badge. Wordmark: Inter ExtraBold "Market" + Inter Med
   - `lockup-mono-black` / `-mono-white`: single colour (S is knocked out, so the background shows through)
   - `stacked*`: same five versions with the mark above the name
   - `mark*`: M and badge only
-  - `app-icon`, `-square`, `-round`: red icon with rounded, square and circular corners
+  - `app-icon`, `-square`, `-round`: red icon with a white M and a black badge with a white S, in rounded, square and circular corners
   - `android-adaptive-foreground` / `-background`: 108 dp adaptive icon layers
 - `png/lockup`, `png/mark`: transparent PNGs (lockups 1600 px wide, stacked 1200 px, marks 1024 px).
 - `png/app-icon`: 1024, 512 and square-corner 1024.

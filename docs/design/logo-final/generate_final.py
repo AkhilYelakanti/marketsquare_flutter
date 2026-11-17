@@ -4,7 +4,7 @@ import defs as d
 from defs import *
 D=sys.argv[1]
 SC="M58 70C58 64 42 64 42 71C42 77 58 76 58 83C58 90 42 90 42 84"
-SCH={'light':(RED,INK,WHITE),'dark':(WHITE,LRED,DARK),'red':(WHITE,PINK,RED),'monob':(INK,INK,None),'monow':(WHITE,WHITE,None)}
+SCH={'light':(RED,INK,WHITE),'dark':(WHITE,LRED,DARK),'red':(WHITE,PINK,RED),'monob':(INK,INK,None),'monow':(WHITE,WHITE,None),'icon':(WHITE,INK,WHITE)}
 d.SCHEME['monob']=dict(c1=INK,c2=INK,a=INK,b=INK); d.SCHEME['monow']=dict(c1=WHITE,c2=WHITE,a=WHITE,b=WHITE)
 def mark4(sc,badge=True):
     cm,cb,cs=SCH[sc]
@@ -32,7 +32,7 @@ for sc,nm in {'light':'mark','dark':'mark-reversed','monob':'mark-mono-black','m
     wr(f"{D}/svg/marketsquare-{nm}.svg",d.svg(mark4(sc),100,100)); add(f"marketsquare-{nm}",f"png/mark/marketsquare-{nm}.png",1024)
 # app icons
 def icon(shape,sz=100,k=.70):
-    off=(100-100*k)/2; inner=f'<g transform="translate({off} {off}) scale({k})">{mark4("red")}</g>'
+    off=(100-100*k)/2; inner=f'<g transform="translate({off} {off}) scale({k})">{mark4("icon")}</g>'
     bg={'rounded':f'<rect width="100" height="100" rx="22" fill="{RED}"/>','square':f'<rect width="100" height="100" fill="{RED}"/>','round':f'<circle cx="50" cy="50" r="50" fill="{RED}"/>'}[shape]
     return d.svg(bg+inner,100,100)
 wr(f"{D}/svg/marketsquare-app-icon.svg",icon('rounded')); wr(f"{D}/svg/marketsquare-app-icon-square.svg",icon('square')); wr(f"{D}/svg/marketsquare-app-icon-round.svg",icon('round'))
@@ -42,7 +42,7 @@ add("marketsquare-app-icon-square","png/app-icon/marketsquare-app-icon-square-10
 for dn,px in {'mdpi':48,'hdpi':72,'xhdpi':96,'xxhdpi':144,'xxxhdpi':192}.items():
     os.makedirs(f"{D}/png/android/mipmap-{dn}",exist_ok=True)
     add("marketsquare-app-icon",f"png/android/mipmap-{dn}/ic_launcher.png",px); add("marketsquare-app-icon-round",f"png/android/mipmap-{dn}/ic_launcher_round.png",px)
-fg=d.svg(f'<g transform="translate(24 24) scale(.6)">{mark4("red")}</g>',108,108)
+fg=d.svg(f'<g transform="translate(24 24) scale(.6)">{mark4("icon")}</g>',108,108)
 wr(f"{D}/svg/android-adaptive-foreground.svg",fg); wr(f"{D}/svg/android-adaptive-background.svg",d.svg(f'<rect width="108" height="108" fill="{RED}"/>',108,108))
 add("android-adaptive-foreground","png/android/ic_launcher_foreground-432.png",432); add("android-adaptive-background","png/android/ic_launcher_background-432.png",432)
 add("android-adaptive-foreground","png/android/play-store-icon-512-source.png",512) if False else None
